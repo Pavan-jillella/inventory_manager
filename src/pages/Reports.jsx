@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Package, Users as UsersIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, Package, Users as UsersIcon, FileDown, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAppContext } from '../context/AppContext';
 
@@ -8,54 +8,107 @@ const COLORS = ['#b89771', '#8f7354', '#059669', '#d97706', '#dc2626'];
 
 export const Reports = () => {
   const { logs, items } = useAppContext();
+  const [period, setPeriod] = useState('7');
 
-  // Top 5 items by usage
+  const periodLogs = useMemo(() => {
+    if (period === 'all') return logs;
+    const now = new Date();
+    return logs.filter(l => {
+      const diffDays = Math.ceil(Math.abs(now - new Date(l.timestamp)) / (1000 * 60 * 60 * 24));
+      return diffDays <= parseInt(period);
+    });
+  }, [logs, period]);
+
   const topItems = useMemo(() => {
     const counts = {};
-    logs.forEach(l => { counts[l.itemName] = (counts[l.itemName] || 0) + l.quantity; });
+    periodLogs.forEach(l => { counts[l.itemName] = (counts[l.itemName] || 0) + l.quantity; });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count }));
-  }, [logs]);
+  }, [periodLogs]);
 
-  // Usage by category
   const categoryUsage = useMemo(() => {
     const cats = {};
-    logs.forEach(l => { cats[l.itemCategory || 'Other'] = (cats[l.itemCategory || 'Other'] || 0) + l.quantity; });
+    periodLogs.forEach(l => { cats[l.itemCategory || 'Other'] = (cats[l.itemCategory || 'Other'] || 0) + l.quantity; });
     return Object.entries(cats).map(([name, value]) => ({ name, value }));
-  }, [logs]);
+  }, [periodLogs]);
 
-  // Usage by staff
   const staffUsage = useMemo(() => {
     const staff = {};
-    logs.forEach(l => { staff[l.staffName || 'Unknown'] = (staff[l.staffName || 'Unknown'] || 0) + l.quantity; });
+    periodLogs.forEach(l => { staff[l.staffName || 'Unknown'] = (staff[l.staffName || 'Unknown'] || 0) + l.quantity; });
     return Object.entries(staff).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-  }, [logs]);
+  }, [periodLogs]);
 
-  // Daily usage for last 7 days
   const dailyUsage = useMemo(() => {
     const days = {};
     const now = new Date();
-    for (let i = 6; i >= 0; i--) {
+    const daysToLookBack = period === 'all' ? 30 : parseInt(period);
+    for (let i = daysToLookBack - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      days[d.toLocaleDateString('en-US', { weekday: 'short' })] = 0;
+      const dayLabel = daysToLookBack <= 7 
+        ? d.toLocaleDateString('en-US', { weekday: 'short' })
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      days[dayLabel] = { label: dayLabel, count: 0 };
     }
-    logs.forEach(l => {
+    periodLogs.forEach(l => {
       const d = new Date(l.timestamp);
-      const diff = Math.ceil(Math.abs(now - d) / (1000 * 60 * 60 * 24));
-      if (diff <= 7) {
-        const key = d.toLocaleDateString('en-US', { weekday: 'short' });
-        if (days[key] !== undefined) days[key] += l.quantity;
+      const diff = Math.floor(Math.abs(now - d) / (1000 * 60 * 60 * 24));
+      if (diff < daysToLookBack) {
+        const dayLabel = daysToLookBack <= 7 
+          ? d.toLocaleDateString('en-US', { weekday: 'short' })
+          : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (days[dayLabel]) days[dayLabel].count += l.quantity;
       }
     });
-    return Object.entries(days).map(([day, count]) => ({ day, count }));
-  }, [logs]);
+    return Object.values(days);
+  }, [periodLogs, period]);
+
+  const exportCurrentReport = () => {
+    let csv = `Report Period:,${period === 'all' ? 'All Time' : 'Last ' + period + ' Days'}\n\n`;
+    
+    // Summary Headers
+    csv += 'TOP ITEMS\nItem Name,Quantity Issued\n';
+    topItems.forEach(i => csv += `"${i.name}",${i.count}\n`);
+    csv += '\nSTAFF USAGE\nStaff Member,Quantity Issued\n';
+    staffUsage.forEach(s => csv += `"${s.name}",${s.count}\n`);
+    csv += '\nCATEGORY BREAKDOWN\nCategory,Quantity Issued\n';
+    categoryUsage.forEach(c => csv += `"${c.name}",${c.value}\n`);
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `inventory_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
+  const exportFullInventory = () => {
+    const headers = 'Item ID,Name,Category,Current Stock,Min Stock,Purchase Rate,Staff Rate,Guest Rate\n';
+    const rows = items.map(i => `${i.id},"${i.name}","${i.category}",${i.stock},${i.minStock},${i.purchaseRate || 0},${i.staffRate || 0},${i.guestRate || 0}`).join('\n');
+    const blob = new Blob([headers + rows], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `inventory_snapshot_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
 
   return (
     <div style={{ paddingBottom: '2rem' }}>
       <div className="app-header">
         <div>
-          <h1>Reports</h1>
-          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Usage analytics, staff performance, and category breakdowns.</p>
+          <h1>Reports & Export</h1>
+          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Usage analytics and data exporting.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.25rem', padding: '0.2rem', background: '#f3f4f6', borderRadius: '0.5rem' }}>
+            {[{ k: '7', l: '7D' }, { k: '30', l: '30D' }, { k: 'all', l: 'All' }].map(p => (
+              <button key={p.k} onClick={() => setPeriod(p.k)} style={{
+                padding: '0.3rem 0.6rem', borderRadius: '0.35rem', fontSize: '0.75rem', fontWeight: 600,
+                background: period === p.k ? 'white' : 'transparent', color: period === p.k ? 'var(--accent-dark)' : 'var(--text-muted)',
+                boxShadow: period === p.k ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.2s',
+              }}>{p.l}</button>
+            ))}
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={exportFullInventory} style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}><FileDown size={14} /> Full Inventory</button>
+          <button className="btn btn-outline btn-sm" onClick={exportCurrentReport} style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}><Download size={14} /> Report Data</button>
         </div>
       </div>
 
@@ -69,7 +122,7 @@ export const Reports = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyUsage}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                <XAxis dataKey="day" stroke="#9ca3af" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <XAxis dataKey="label" stroke="#9ca3af" tick={{ fill: '#9ca3af', fontSize: 11 }} />
                 <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af', fontSize: 12 }} />
                 <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '0.75rem', boxShadow: 'var(--shadow-elevated)' }} />
                 <Bar dataKey="count" fill="#b89771" radius={[6, 6, 0, 0]} />
