@@ -7,20 +7,32 @@ const AppContext = createContext();
 export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem('cis_items');
-    return saved ? JSON.parse(saved) : MOCK_ITEMS;
+    try {
+      const saved = localStorage.getItem('cis_items');
+      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+    } catch(e) {}
+    return MOCK_ITEMS;
   });
   const [logs, setLogs] = useState(() => {
-    const saved = localStorage.getItem('cis_logs');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('cis_logs');
+      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+    } catch(e) {}
+    return [];
   });
   const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem('cis_users');
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
+    try {
+      const saved = localStorage.getItem('cis_users');
+      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+    } catch(e) {}
+    return DEFAULT_USERS;
   });
   const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem('cis_settings');
-    return saved ? JSON.parse(saved) : {
+    try {
+      const saved = localStorage.getItem('cis_settings');
+      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+    } catch(e) {}
+    return {
       hotelName: 'Country Inn & Suites',
       hotelAddress: '123 Luxury Ave, Suite 100',
       categories: CATEGORIES,
@@ -66,7 +78,10 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { 
     localStorage.setItem('cis_settings', JSON.stringify(settings)); 
     if (supabase) {
-      supabase.from('settings').upsert({ id: 1, ...settings }).catch(() => {});
+      const syncSettings = async () => {
+        try { await supabase.from('settings').upsert({ id: 1, ...settings }); } catch (e) {}
+      };
+      syncSettings();
     }
   }, [settings]);
 
