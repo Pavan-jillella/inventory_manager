@@ -58,7 +58,7 @@ export const Login = () => {
         {/* Logo */}
         <div style={{ marginBottom: '1.5rem' }}>
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt="Country Inn & Suites"
             style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', marginBottom: '1rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
           />
