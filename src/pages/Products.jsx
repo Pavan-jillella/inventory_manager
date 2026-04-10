@@ -48,8 +48,29 @@ export const Products = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
+    
+    // Compress image natively before Base64 to prevent localStorage/Supabase payload limits
     const reader = new FileReader();
-    reader.onload = (event) => updateForm('image', event.target.result);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 400; // Small thumbnail size
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+        
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        updateForm('image', canvas.toDataURL('image/jpeg', 0.8)); // 80% quality JPG
+      };
+      img.src = event.target.result;
+    };
     reader.readAsDataURL(file);
   };
 

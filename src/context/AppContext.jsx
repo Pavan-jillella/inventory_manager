@@ -101,11 +101,12 @@ export const AppProvider = ({ children }) => {
   }, [settings]);
 
   const login = (username, password) => {
+    const safeUsername = username.toLowerCase().trim();
     // Admin login with generic keys if none match, for ease of use
-    const user = users.find(u => u.username === username && u.password === password);
+    const user = users.find(u => (u.username || '').toLowerCase() === safeUsername && u.password === password);
     if (user) { setCurrentUser(user); return user; }
     // Fallback if users empty/broken
-    if (username === 'admin' && password === 'admin') {
+    if (safeUsername === 'admin' && password === 'admin') {
       const fallback = { id: 1, name: 'Admin', role: 'Admin', username: 'admin' };
       setCurrentUser(fallback); return fallback;
     }
