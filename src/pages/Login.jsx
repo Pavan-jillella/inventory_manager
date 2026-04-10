@@ -1,42 +1,33 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Delete } from 'lucide-react';
+import { User, Lock } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 export const Login = () => {
-  const [pin, setPin] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { loginWithPin } = useAppContext();
+  const { login } = useAppContext();
   const navigate = useNavigate();
 
-  const handleDigit = (digit) => {
-    if (pin.length >= 4) return;
-    const newPin = pin + digit;
-    setPin(newPin);
+  const handleSubmit = (e) => {
+    e.preventDefault();
     setError('');
-
-    // Auto-submit when 4 digits entered
-    if (newPin.length === 4) {
-      setTimeout(() => {
-        const user = loginWithPin(newPin);
-        if (user) {
-          if (user.role === 'Admin') navigate('/admin');
-          else navigate('/issue-item');
-        } else {
-          setError('Invalid PIN');
-          setPin('');
-        }
-      }, 200);
+    const user = login(username, password);
+    if (user) {
+      if (user.role === 'Admin') navigate('/admin');
+      else navigate('/issue-item');
+    } else {
+      setError('Invalid username or password');
     }
   };
 
-  const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
+  const quickFill = (u, p) => {
+    setUsername(u);
+    setPassword(p);
     setError('');
   };
-
-  const dots = [0, 1, 2, 3];
 
   return (
     <div style={{
@@ -48,7 +39,7 @@ export const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         style={{
-          width: '100%', maxWidth: '360px', padding: '2.5rem 2rem',
+          width: '100%', maxWidth: '380px', padding: '2.5rem 2rem',
           background: 'white', borderRadius: '1.5rem',
           boxShadow: '0 20px 60px rgba(0,0,0,0.08)',
           border: '1px solid rgba(0,0,0,0.06)',
@@ -70,92 +61,41 @@ export const Login = () => {
           </p>
         </div>
 
-        {/* PIN Dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-          {dots.map(i => (
-            <motion.div
-              key={i}
-              animate={{ scale: pin.length > i ? 1.2 : 1, background: pin.length > i ? 'var(--accent-gradient)' : '#e5e7eb' }}
-              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              style={{
-                width: '16px', height: '16px', borderRadius: '50%',
-                background: pin.length > i ? 'hsl(35, 30%, 48%)' : '#e5e7eb',
-                transition: 'background 0.15s ease',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Error */}
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-            style={{ color: 'var(--danger-color)', fontSize: '0.85rem', marginBottom: '0.75rem', fontWeight: 500 }}
+            style={{ padding: '0.6rem 1rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.75rem', color: 'var(--danger-color)', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 500 }}
           >
             {error}
           </motion.div>
         )}
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
-          Enter your 4-digit PIN
-        </p>
-
-        {/* Number Pad */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', maxWidth: '260px', margin: '0 auto' }}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-            <button
-              key={num}
-              onClick={() => handleDigit(String(num))}
-              style={{
-                width: '100%', aspectRatio: '1', borderRadius: '50%',
-                fontSize: '1.3rem', fontWeight: 600, fontFamily: 'var(--font-display)',
-                background: '#f9fafb', border: '1px solid rgba(0,0,0,0.06)',
-                color: 'var(--text-primary)', cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; e.currentTarget.style.background = 'var(--accent-bg)'; }}
-              onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#f9fafb'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#f9fafb'; }}
-            >
-              {num}
-            </button>
-          ))}
-          <div /> {/* empty cell */}
-          <button
-            onClick={() => handleDigit('0')}
-            style={{
-              width: '100%', aspectRatio: '1', borderRadius: '50%',
-              fontSize: '1.3rem', fontWeight: 600, fontFamily: 'var(--font-display)',
-              background: '#f9fafb', border: '1px solid rgba(0,0,0,0.06)',
-              color: 'var(--text-primary)', cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; e.currentTarget.style.background = 'var(--accent-bg)'; }}
-            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#f9fafb'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#f9fafb'; }}
-          >
-            0
+        <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
+          <div className="input-group">
+            <label>Username</label>
+            <div style={{ position: 'relative' }}>
+              <User size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="text" className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
+            </div>
+          </div>
+          <div className="input-group">
+            <label>Password</label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" style={{ width: '100%', paddingLeft: '2.5rem' }} />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem' }}>
+            Sign In
           </button>
-          <button
-            onClick={handleDelete}
-            style={{
-              width: '100%', aspectRatio: '1', borderRadius: '50%',
-              fontSize: '1rem', background: 'transparent', border: 'none',
-              color: 'var(--text-muted)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s ease',
-            }}
-            onMouseOver={e => e.currentTarget.style.color = 'var(--danger-color)'}
-            onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
-          >
-            <Delete size={22} />
-          </button>
-        </div>
+        </form>
 
-        <div style={{ marginTop: '2rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          Admin: 1234 · Staff: 0000
+        <div style={{ marginTop: '1.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Demo Credentials</p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            <button className="btn btn-outline btn-sm" onClick={() => quickFill('admin', 'admin')}>Admin</button>
+            <button className="btn btn-outline btn-sm" onClick={() => quickFill('desk', 'desk')}>Front Desk</button>
+          </div>
         </div>
       </motion.div>
     </div>

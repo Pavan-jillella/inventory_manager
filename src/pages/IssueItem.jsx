@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart, CreditCard, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getCurrentShift, CATEGORIES } from '../data/mockData';
 
@@ -12,7 +12,8 @@ export const IssueItem = () => {
   const [roomNumber, setRoomNumber] = useState('');
 
   const [notes, setNotes] = useState('');
-  const [rateType, setRateType] = useState('guest'); // 'guest' or 'staff'
+  const [rateType, setRateType] = useState('guest');
+  const [paymentMethod, setPaymentMethod] = useState('cash');
   const searchInputRef = useRef(null);
 
   const shift = getCurrentShift();
@@ -64,12 +65,13 @@ export const IssueItem = () => {
 
   const handleSubmit = () => {
     if (cart.length === 0) return;
-    const success = logCartUsage(cart, roomNumber, notes, rateType);
+    const success = logCartUsage(cart, roomNumber, notes, rateType, paymentMethod);
     if (success) {
       setCart([]);
       setRoomNumber('');
       setNotes('');
       setSearch('');
+      setPaymentMethod('cash');
       searchInputRef.current?.focus();
     }
   };
@@ -307,6 +309,35 @@ export const IssueItem = () => {
                 </div>
               </div>
 
+              {/* Payment Method */}
+              <div style={{ marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Payment</label>
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <button
+                    onClick={() => setPaymentMethod('cash')}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
+                      padding: '0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                      background: paymentMethod === 'cash' ? '#ecfdf5' : '#f9fafb',
+                      border: `1.5px solid ${paymentMethod === 'cash' ? 'var(--success-color)' : 'rgba(0,0,0,0.06)'}`,
+                      color: paymentMethod === 'cash' ? 'var(--success-color)' : 'var(--text-muted)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  ><Banknote size={14} /> Cash</button>
+                  <button
+                    onClick={() => setPaymentMethod('card')}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
+                      padding: '0.5rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                      background: paymentMethod === 'card' ? '#eff6ff' : '#f9fafb',
+                      border: `1.5px solid ${paymentMethod === 'card' ? '#3b82f6' : 'rgba(0,0,0,0.06)'}`,
+                      color: paymentMethod === 'card' ? '#3b82f6' : 'var(--text-muted)',
+                      transition: 'all 0.2s ease',
+                    }}
+                  ><CreditCard size={14} /> Card</button>
+                </div>
+              </div>
+
               {/* Staff + Total */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.65rem', background: '#f9fafb', borderRadius: '0.5rem', marginBottom: '0.6rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -317,7 +348,7 @@ export const IssueItem = () => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-dark)', fontFamily: 'var(--font-display)' }}>${cartTotal.toFixed(2)}</div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{cartQty} items · {rateType} rate</div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{cartQty} items · {rateType} · {paymentMethod}</div>
                 </div>
               </div>
 

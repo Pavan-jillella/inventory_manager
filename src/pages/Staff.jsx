@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, Shield, User, Key, X } from 'lucide-react';
+import { Plus, Search, Trash2, Shield, User, Lock, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 export const Staff = () => {
@@ -8,21 +8,23 @@ export const Staff = () => {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newPin, setNewPin] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('Front Desk');
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(search.toLowerCase()) ||
-    user.role.toLowerCase().includes(search.toLowerCase())
+    user.role.toLowerCase().includes(search.toLowerCase()) ||
+    user.username?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (!newName.trim()) return;
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) return;
-    const success = addStaff(newName.trim(), newPin, newRole);
+    if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) return;
+    const success = addStaff(newName.trim(), newUsername.trim(), newPassword.trim(), newRole);
     if (success) {
       setNewName('');
-      setNewPin('');
+      setNewUsername('');
+      setNewPassword('');
       setNewRole('Front Desk');
       setShowAdd(false);
     }
@@ -39,7 +41,7 @@ export const Staff = () => {
       <div className="app-header">
         <div>
           <h1>Staff</h1>
-          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Manage team members, PINs, and access levels.</p>
+          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Manage team members, credentials, and access levels.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
           <Plus size={16} /> Add Staff
@@ -74,22 +76,19 @@ export const Staff = () => {
               </div>
 
               <div className="input-group">
-                <label>4-Digit PIN</label>
+                <label>Username</label>
                 <div style={{ position: 'relative' }}>
-                  <Key size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    className="input"
-                    value={newPin}
-                    onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 4); setNewPin(v); }}
-                    placeholder="e.g. 4567"
-                    maxLength={4}
-                    style={{ width: '100%', paddingLeft: '2.5rem', fontFamily: 'var(--font-display)', fontSize: '1.25rem', letterSpacing: '0.3em' }}
-                  />
+                  <User size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="text" className="input" value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} placeholder="e.g. sarah" style={{ width: '100%', paddingLeft: '2.5rem' }} />
                 </div>
-                {newPin.length > 0 && newPin.length < 4 && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--warning-color)' }}>PIN must be 4 digits</span>
-                )}
+              </div>
+
+              <div className="input-group">
+                <label>Password</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="text" className="input" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="e.g. sarah123" style={{ width: '100%', paddingLeft: '2.5rem' }} />
+                </div>
               </div>
 
               <div className="input-group">
@@ -105,8 +104,8 @@ export const Staff = () => {
                 <button
                   className="btn btn-primary"
                   onClick={handleAdd}
-                  style={{ flex: 1, opacity: newName.trim() && newPin.length === 4 ? 1 : 0.5 }}
-                  disabled={!newName.trim() || newPin.length !== 4}
+                  style={{ flex: 1, opacity: newName.trim() && newUsername.trim() && newPassword.trim() ? 1 : 0.5 }}
+                  disabled={!newName.trim() || !newUsername.trim() || !newPassword.trim()}
                 >
                   <Plus size={16} /> Create Staff
                 </button>
@@ -128,7 +127,7 @@ export const Staff = () => {
           <thead>
             <tr>
               <th>Name</th>
-              <th>PIN</th>
+              <th>Username</th>
               <th>Role</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
@@ -163,11 +162,7 @@ export const Staff = () => {
                       <span style={{ fontWeight: 500 }}>{user.name}</span>
                     </div>
                   </td>
-                  <td>
-                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', letterSpacing: '0.15em', color: 'var(--text-secondary)' }}>
-                      {user.pin?.replace(/./g, '•')}
-                    </span>
-                  </td>
+                  <td style={{ color: 'var(--text-muted)' }}>@{user.username}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       {user.role === 'Admin' && <Shield size={13} style={{ color: 'var(--accent-color)' }} />}

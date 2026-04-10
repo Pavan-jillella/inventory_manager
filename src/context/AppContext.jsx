@@ -23,9 +23,9 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('cis_logs', JSON.stringify(logs)); }, [logs]);
   useEffect(() => { localStorage.setItem('cis_users', JSON.stringify(users)); }, [users]);
 
-  // PIN-based login
-  const loginWithPin = (pin) => {
-    const user = users.find(u => u.pin === pin);
+  // Username/password login
+  const login = (username, password) => {
+    const user = users.find(u => u.username === username && u.password === password);
     if (user) {
       setCurrentUser(user);
       return user;
@@ -41,25 +41,24 @@ export const AppProvider = ({ children }) => {
   };
 
   // Add new staff
-  const addStaff = (name, pin, role = 'Front Desk') => {
-    if (users.find(u => u.pin === pin)) {
-      showToast('PIN already in use!', 'error');
+  const addStaff = (name, username, password, role = 'Front Desk') => {
+    if (users.find(u => u.username === username)) {
+      showToast('Username already taken!', 'error');
       return false;
     }
-    const newUser = { id: Date.now(), name, pin, role };
+    const newUser = { id: Date.now(), name, username, password, role };
     setUsers(prev => [...prev, newUser]);
     showToast(`${name} added successfully`);
     return true;
   };
 
-  // Remove staff
   const removeStaff = (userId) => {
     setUsers(prev => prev.filter(u => u.id !== userId));
     showToast('Staff removed');
   };
 
-  // Issue multiple items at once (cart)
-  const logCartUsage = (cartItems, roomNumber, notes, rateType = 'guest') => {
+  // Issue multiple items (cart) — now with paymentMethod
+  const logCartUsage = (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash') => {
     for (const ci of cartItems) {
       const currentItem = items.find(i => i.id === ci.item.id);
       if (!currentItem || currentItem.stock < ci.quantity) {
@@ -90,6 +89,7 @@ export const AppProvider = ({ children }) => {
         rateType,
         unitRate: rate,
         totalAmount: rate * ci.quantity,
+        paymentMethod,
         roomNumber: roomNumber || '',
         notes: notes || '',
         staffId: currentUser?.id,
@@ -118,7 +118,7 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      currentUser, loginWithPin, logout,
+      currentUser, login, logout,
       items, setItems, logs, users,
       logCartUsage, addStaff, removeStaff,
       toast, showToast, getShiftStats,
