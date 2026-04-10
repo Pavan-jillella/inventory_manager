@@ -32,18 +32,24 @@ export const Login = () => {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1.5rem',
-      background: 'linear-gradient(135deg, #faf9f6 0%, #f0ebe4 50%, #e8e0d5 100%)',
+      background: 'url(/hotel-bg.jpg) center/cover no-repeat',
+      position: 'relative',
     }}>
+      {/* Dark overlay for better readability */}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}></div>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         style={{
           width: '100%', maxWidth: '380px', padding: '2.5rem 2rem',
-          background: 'white', borderRadius: '1.5rem',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(0,0,0,0.06)',
+          background: 'rgba(255, 255, 255, 0.85)', borderRadius: '1.5rem',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          border: '1px solid rgba(255,255,255,0.4)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           textAlign: 'center',
+          position: 'relative', zIndex: 10,
         }}
       >
         {/* Logo */}
