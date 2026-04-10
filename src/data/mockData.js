@@ -19,10 +19,9 @@ export const MOCK_ITEMS = [
   { id: 16, name: 'Stomach Tablets',  category: 'Medicines',  stock: 6,   minStock: 5,   staffRate: 2.50, guestRate: 4.50, image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=200&auto=format&fit=crop' },
 ];
 
-export const MOCK_USERS = [
-  { id: 1, name: 'Admin User', role: 'Admin', username: 'admin', password: 'password' },
-  { id: 2, name: 'John Desk', role: 'Front Desk', username: 'desk', password: 'password' },
-  { id: 3, name: 'Sarah Night', role: 'Front Desk', username: 'sarah', password: 'password' },
+export const DEFAULT_USERS = [
+  { id: 1, name: 'Admin',       role: 'Admin',      pin: '1234' },
+  { id: 2, name: 'Front Desk',  role: 'Front Desk', pin: '0000' },
 ];
 
 export const SHIFTS = [

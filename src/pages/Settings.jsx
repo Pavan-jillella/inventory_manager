@@ -4,7 +4,7 @@ import { Save, Building2, Bell, Tag, Plus, X } from 'lucide-react';
 import { CATEGORIES } from '../data/mockData';
 
 export const SettingsPage = () => {
-  const [hotelName, setHotelName] = useState('Grand Palace Hotel');
+  const [hotelName, setHotelName] = useState('Country Inn & Suites');
   const [hotelAddress, setHotelAddress] = useState('123 Luxury Ave, Suite 100');
   const [categories, setCategories] = useState(CATEGORIES);
   const [newCat, setNewCat] = useState('');

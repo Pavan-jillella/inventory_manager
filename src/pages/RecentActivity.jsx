@@ -83,7 +83,6 @@ export const RecentActivity = () => {
               <th>Rate</th>
               <th>Amount</th>
               <th>Room</th>
-              <th>Guest</th>
               <th>Issued By</th>
               <th>Shift</th>
             </tr>
@@ -91,7 +90,7 @@ export const RecentActivity = () => {
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   <Package size={36} style={{ marginBottom: '0.75rem', opacity: 0.15 }} />
                   <p>No activity found for the selected period.</p>
                 </td>
@@ -138,13 +137,7 @@ export const RecentActivity = () => {
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}
                   </td>
-                  <td>
-                    {log.guestName ? (
-                      <span style={{ fontWeight: 500 }}>{log.guestName}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>—</span>
-                    )}
-                  </td>
+
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.6rem', fontWeight: 700 }}>

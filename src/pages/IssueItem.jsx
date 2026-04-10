@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Minus, Check, Package, Hash, User, Zap, X, ShoppingCart, Trash2, DollarSign } from 'lucide-react';
+import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getCurrentShift, CATEGORIES } from '../data/mockData';
 
@@ -10,7 +10,7 @@ export const IssueItem = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [cart, setCart] = useState([]); // [{ item, quantity }]
   const [roomNumber, setRoomNumber] = useState('');
-  const [guestName, setGuestName] = useState('');
+
   const [notes, setNotes] = useState('');
   const [rateType, setRateType] = useState('guest'); // 'guest' or 'staff'
   const searchInputRef = useRef(null);
@@ -64,11 +64,10 @@ export const IssueItem = () => {
 
   const handleSubmit = () => {
     if (cart.length === 0) return;
-    const success = logCartUsage(cart, roomNumber, guestName, notes, rateType);
+    const success = logCartUsage(cart, roomNumber, notes, rateType);
     if (success) {
       setCart([]);
       setRoomNumber('');
-      setGuestName('');
       setNotes('');
       setSearch('');
       searchInputRef.current?.focus();
@@ -84,7 +83,7 @@ export const IssueItem = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, roomNumber, guestName, notes, rateType]);
+  }, [cart, roomNumber, notes, rateType]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -300,20 +299,11 @@ export const IssueItem = () => {
           {/* Details Fields */}
           {cart.length > 0 && (
             <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '0.75rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Room</label>
-                  <div style={{ position: 'relative' }}>
-                    <Hash size={12} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="text" className="input" value={roomNumber} onChange={e => setRoomNumber(e.target.value)} placeholder="201" style={{ paddingLeft: '1.85rem', padding: '0.5rem 0.7rem 0.5rem 1.85rem', fontSize: '0.8rem' }} />
-                  </div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Guest Name</label>
-                  <div style={{ position: 'relative' }}>
-                    <User size={12} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="text" className="input" value={guestName} onChange={e => setGuestName(e.target.value)} placeholder="Name" style={{ paddingLeft: '1.85rem', padding: '0.5rem 0.7rem 0.5rem 1.85rem', fontSize: '0.8rem' }} />
-                  </div>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Room Number</label>
+                <div style={{ position: 'relative' }}>
+                  <Hash size={12} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input type="text" className="input" value={roomNumber} onChange={e => setRoomNumber(e.target.value)} placeholder="e.g. 201" style={{ width: '100%', paddingLeft: '1.85rem', padding: '0.5rem 0.7rem 0.5rem 1.85rem', fontSize: '0.8rem' }} />
                 </div>
               </div>
 

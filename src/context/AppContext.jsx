@@ -1,30 +1,31 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MOCK_ITEMS, MOCK_USERS, getCurrentShift } from '../data/mockData';
+import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift } from '../data/mockData';
 
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem('inventory_items');
+    const saved = localStorage.getItem('cis_items');
     return saved ? JSON.parse(saved) : MOCK_ITEMS;
   });
   const [logs, setLogs] = useState(() => {
-    const saved = localStorage.getItem('inventory_logs');
+    const saved = localStorage.getItem('cis_logs');
     return saved ? JSON.parse(saved) : [];
+  });
+  const [users, setUsers] = useState(() => {
+    const saved = localStorage.getItem('cis_users');
+    return saved ? JSON.parse(saved) : DEFAULT_USERS;
   });
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem('inventory_items', JSON.stringify(items));
-  }, [items]);
+  useEffect(() => { localStorage.setItem('cis_items', JSON.stringify(items)); }, [items]);
+  useEffect(() => { localStorage.setItem('cis_logs', JSON.stringify(logs)); }, [logs]);
+  useEffect(() => { localStorage.setItem('cis_users', JSON.stringify(users)); }, [users]);
 
-  useEffect(() => {
-    localStorage.setItem('inventory_logs', JSON.stringify(logs));
-  }, [logs]);
-
-  const login = (username, password) => {
-    const user = MOCK_USERS.find(u => u.username === username && u.password === password);
+  // PIN-based login
+  const loginWithPin = (pin) => {
+    const user = users.find(u => u.pin === pin);
     if (user) {
       setCurrentUser(user);
       return user;
@@ -39,45 +40,26 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Issue a single item
-  const logUsage = (item, quantity, roomNumber, guestName, notes, rateType = 'guest') => {
-    if (item.stock < quantity) {
-      showToast('Insufficient stock!', 'error');
+  // Add new staff
+  const addStaff = (name, pin, role = 'Front Desk') => {
+    if (users.find(u => u.pin === pin)) {
+      showToast('PIN already in use!', 'error');
       return false;
     }
-    const updatedItems = items.map(i =>
-      i.id === item.id ? { ...i, stock: i.stock - quantity } : i
-    );
-    setItems(updatedItems);
-
-    const shift = getCurrentShift();
-    const rate = rateType === 'staff' ? (item.staffRate || 0) : (item.guestRate || 0);
-
-    const newLog = {
-      id: Date.now() + Math.random(),
-      itemId: item.id,
-      itemName: item.name,
-      itemCategory: item.category,
-      quantity,
-      rateType,
-      unitRate: rate,
-      totalAmount: rate * quantity,
-      roomNumber: roomNumber || '',
-      guestName: guestName || '',
-      notes: notes || '',
-      staffId: currentUser?.id,
-      staffName: currentUser?.name,
-      shift: shift.id,
-      shiftLabel: shift.label,
-      timestamp: new Date().toISOString(),
-    };
-    setLogs(prev => [newLog, ...prev]);
+    const newUser = { id: Date.now(), name, pin, role };
+    setUsers(prev => [...prev, newUser]);
+    showToast(`${name} added successfully`);
     return true;
   };
 
+  // Remove staff
+  const removeStaff = (userId) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    showToast('Staff removed');
+  };
+
   // Issue multiple items at once (cart)
-  const logCartUsage = (cartItems, roomNumber, guestName, notes, rateType = 'guest') => {
-    // Validate all stock
+  const logCartUsage = (cartItems, roomNumber, notes, rateType = 'guest') => {
     for (const ci of cartItems) {
       const currentItem = items.find(i => i.id === ci.item.id);
       if (!currentItem || currentItem.stock < ci.quantity) {
@@ -86,7 +68,6 @@ export const AppProvider = ({ children }) => {
       }
     }
 
-    // Deduct stock for all items
     const updatedItems = items.map(i => {
       const cartEntry = cartItems.find(ci => ci.item.id === i.id);
       if (cartEntry) return { ...i, stock: i.stock - cartEntry.quantity };
@@ -97,7 +78,6 @@ export const AppProvider = ({ children }) => {
     const shift = getCurrentShift();
     const batchId = Date.now();
 
-    // Create logs for each item
     const newLogs = cartItems.map((ci, idx) => {
       const rate = rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0);
       return {
@@ -111,7 +91,6 @@ export const AppProvider = ({ children }) => {
         unitRate: rate,
         totalAmount: rate * ci.quantity,
         roomNumber: roomNumber || '',
-        guestName: guestName || '',
         notes: notes || '',
         staffId: currentUser?.id,
         staffName: currentUser?.name,
@@ -134,15 +113,14 @@ export const AppProvider = ({ children }) => {
       totalItems: shiftLogs.reduce((sum, l) => sum + l.quantity, 0),
       totalEntries: shiftLogs.length,
       totalAmount: shiftLogs.reduce((sum, l) => sum + (l.totalAmount || 0), 0),
-      uniqueRooms: new Set(shiftLogs.filter(l => l.roomNumber).map(l => l.roomNumber)).size,
     };
   };
 
   return (
     <AppContext.Provider value={{
-      currentUser, login, logout,
-      items, setItems, logs,
-      logUsage, logCartUsage,
+      currentUser, loginWithPin, logout,
+      items, setItems, logs, users,
+      logCartUsage, addStaff, removeStaff,
       toast, showToast, getShiftStats,
     }}>
       {children}
