@@ -23,7 +23,16 @@ export const AppProvider = ({ children }) => {
   const [users, setUsers] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_users');
-      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+      if (saved && saved !== 'undefined' && saved !== 'null') {
+        const parsed = JSON.parse(saved);
+        // Ensure new defaults (maddy, pavan) are injected if missing
+        DEFAULT_USERS.forEach(defaultUser => {
+          if (!parsed.find(u => u.username === defaultUser.username)) {
+            parsed.push(defaultUser);
+          }
+        });
+        return parsed;
+      }
     } catch(e) {}
     return DEFAULT_USERS;
   });
