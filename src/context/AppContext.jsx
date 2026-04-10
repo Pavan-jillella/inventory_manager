@@ -122,9 +122,11 @@ export const AppProvider = ({ children }) => {
   // ── Staff CRUD ──
   const addStaff = async (name, username, password, role = 'Front Desk') => {
     if (users.find(u => u.username === username)) { showToast('Username already taken!', 'error'); return false; }
-    const newUser = { id: Date.now(), name, username, password, role };
+    // Generate safe integer ID to bypass out-of-sync PostgreSQL sequences
+    const generatedId = Math.floor(Math.random() * 1000000) + 1000;
+    const newUser = { id: generatedId, name, username, password, role };
     setUsers(prev => [...prev, newUser]);
-    if (supabase) await supabase.from('users').insert([{ name, username, password, role }]);
+    if (supabase) await supabase.from('users').insert([newUser]);
     showToast(`${name} added successfully`);
     return true;
   };
