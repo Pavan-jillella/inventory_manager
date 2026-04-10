@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, X, Package, Image } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { CATEGORIES } from '../data/mockData';
 
@@ -12,6 +12,7 @@ export const Products = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(emptyProduct);
+  const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
 
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -42,6 +43,20 @@ export const Products = () => {
     if (item.stock === 0) return { label: 'Out', cls: 'badge-danger' };
     if (item.stock <= item.minStock) return { label: 'Low', cls: 'badge-warning' };
     return { label: 'OK', cls: 'badge-success' };
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (event) => updateForm('image', event.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
+  const onDrop = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    handleImageUpload(e);
   };
 
   return (
@@ -84,10 +99,33 @@ export const Products = () => {
               </div>
 
               <div className="input-group">
-                <label>Image URL</label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input type="text" className="input" value={form.image} onChange={e => updateForm('image', e.target.value)} placeholder="https://..." style={{ flex: 1 }} />
-                  {form.image && <img src={form.image} alt="" style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} />}
+                <label>Product Image</label>
+                <div 
+                  onDragOver={onDragOver} 
+                  onDrop={onDrop}
+                  style={{ 
+                    border: '2px dashed var(--border-color)', borderRadius: '0.75rem', padding: '1rem', 
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', 
+                    background: '#fafafa', cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
+                  }}
+                  onClick={() => document.getElementById('imageUpload').click()}
+                >
+                  <input type="file" id="imageUpload" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  {form.image ? (
+                    <div style={{ position: 'relative', width: '100%', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <img src={form.image} alt="" style={{ width: '60px', height: '60px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                      <div style={{ flex: 1 }}>
+                        <input type="text" className="input" value={form.image} onChange={e => updateForm('image', e.target.value)} onClick={e => e.stopPropagation()} placeholder="Or paste image link here..." style={{ width: '100%', fontSize: '0.75rem' }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <UploadCloud size={24} style={{ color: 'var(--text-muted)' }} />
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Click or Drag & Drop to upload image</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Or paste a link below</div>
+                      <input type="text" className="input" value={form.image} onChange={e => { e.stopPropagation(); updateForm('image', e.target.value); }} onClick={e => e.stopPropagation()} placeholder="https://..." style={{ width: '100%', marginTop: '0.5rem', fontSize: '0.75rem' }} />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -134,64 +172,117 @@ export const Products = () => {
         )}
       </AnimatePresence>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <div style={{ position: 'relative', maxWidth: '360px' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
           <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" className="input" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', paddingLeft: '2.75rem' }} placeholder="Search products..." />
         </div>
+        <div style={{ display: 'flex', gap: '0.2rem', padding: '0.2rem', background: '#f3f4f6', borderRadius: '0.5rem' }}>
+          <button onClick={() => setViewMode('table')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'table' ? 'white' : 'transparent', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'table' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><Table size={16} /></button>
+          <button onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'list' ? 'white' : 'transparent', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'list' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><List size={16} /></button>
+          <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'grid' ? 'white' : 'transparent', boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'grid' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><LayoutGrid size={16} /></button>
+        </div>
       </div>
 
-      <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', flex: 1, overflowY: 'auto', boxShadow: 'var(--shadow-soft)' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Stock</th>
-              <th>Purchase</th>
-              <th>Staff</th>
-              <th>Guest</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.length === 0 ? (
-              <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No products found.</td></tr>
-            ) : (
-              filteredItems.map(item => {
-                const status = getStockStatus(item);
-                return (
-                  <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        {item.image ? (
-                          <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', borderRadius: '0.4rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
-                        ) : (
-                          <div style={{ width: '32px', height: '32px', borderRadius: '0.4rem', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} style={{ color: 'var(--accent-light)' }} /></div>
-                        )}
-                        <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{item.name}</span>
-                      </div>
-                    </td>
-                    <td><span className="badge badge-accent">{item.category}</span></td>
-                    <td style={{ fontWeight: 600 }}>{item.stock}</td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>${item.purchaseRate?.toFixed(2) || '—'}</td>
-                    <td style={{ fontSize: '0.85rem' }}>${item.staffRate?.toFixed(2) || '—'}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--accent-dark)', fontSize: '0.85rem' }}>${item.guestRate?.toFixed(2) || '—'}</td>
-                    <td><span className={`badge ${status.cls}`}>{status.label}</span></td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.25rem' }}>
-                        <button className="btn btn-ghost btn-sm" style={{ padding: '0.4rem' }} onClick={() => openEdit(item)}><Edit2 size={14} /></button>
-                        <button className="btn btn-ghost btn-sm" style={{ padding: '0.4rem', color: 'var(--danger-color)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {viewMode === 'table' && (
+        <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', flex: 1, overflowY: 'auto', boxShadow: 'var(--shadow-soft)' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Product</th><th>Category</th><th>Stock</th><th>Purchase</th><th>Staff</th><th>Guest</th><th>Status</th><th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredItems.length === 0 ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No products found.</td></tr>
+              ) : (
+                filteredItems.map(item => {
+                  const status = getStockStatus(item);
+                  return (
+                    <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', borderRadius: '0.4rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '0.4rem', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} style={{ color: 'var(--accent-light)' }} /></div>}
+                          <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{item.name}</span>
+                        </div>
+                      </td>
+                      <td><span className="badge badge-accent">{item.category}</span></td>
+                      <td style={{ fontWeight: 600 }}>{item.stock}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>${item.purchaseRate?.toFixed(2) || '—'}</td>
+                      <td style={{ fontSize: '0.85rem' }}>${item.staffRate?.toFixed(2) || '—'}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-dark)', fontSize: '0.85rem' }}>${item.guestRate?.toFixed(2) || '—'}</td>
+                      <td><span className={`badge ${status.cls}`}>{status.label}</span></td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.25rem' }}>
+                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.4rem' }} onClick={() => openEdit(item)}><Edit2 size={14} /></button>
+                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.4rem', color: 'var(--danger-color)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {viewMode === 'grid' && (
+        <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem', alignContent: 'start' }}>
+          {filteredItems.map(item => {
+            const status = getStockStatus(item);
+            return (
+              <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1.25rem', boxShadow: 'var(--shadow-soft)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  {item.image ? <img src={item.image} style={{ width: '48px', height: '48px', borderRadius: '0.5rem', objectFit: 'cover' }} /> : <div style={{ width: '48px', height: '48px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} style={{ color: '#9ca3af' }} /></div>}
+                  <span className={`badge ${status.cls}`}>{status.label}</span>
+                </div>
+                <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.25rem 0', fontWeight: 600 }}>{item.name}</h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.category}</span>
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f9fafb', borderRadius: '0.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div><div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Stock</div><div style={{ fontWeight: 600 }}>{item.stock}</div></div>
+                  <div><div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Guest Rate</div><div style={{ fontWeight: 600, color: 'var(--accent-dark)' }}>${item.guestRate?.toFixed(2)}</div></div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                  <button className="btn btn-outline" style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }} onClick={() => openEdit(item)}>Edit</button>
+                  <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger-color)', borderColor: '#fecaca' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+
+      {viewMode === 'list' && (
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {filteredItems.map(item => {
+            const status = getStockStatus(item);
+            return (
+              <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-soft)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {item.image ? <img src={item.image} style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={18} style={{ color: '#9ca3af' }} /></div>}
+                  <div>
+                    <h3 style={{ fontSize: '1rem', margin: '0 0 0.2rem 0', fontWeight: 600 }}>{item.name}</h3>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.category}</span>
+                      <span className={`badge ${status.cls}`}>{status.label}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Stock</div><div style={{ fontWeight: 600 }}>{item.stock} <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>/ {item.minStock}</span></div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Guest Rate</div><div style={{ fontWeight: 600, color: 'var(--accent-dark)' }}>${item.guestRate?.toFixed(2)}</div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Staff Rate</div><div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>${item.staffRate?.toFixed(2)}</div></div>
+                  <div style={{ display: 'flex', gap: '0.25rem' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openEdit(item)}><Edit2 size={16} /></button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-color)' }} onClick={() => handleDelete(item.id)}><Trash2 size={16} /></button>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
     </div>
   );
 };
