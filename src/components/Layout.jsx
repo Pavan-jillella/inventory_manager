@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Package, ClipboardList, LayoutDashboard, Settings, Users, AlertTriangle, BarChart3, Clock } from 'lucide-react';
+import { LogOut, Package, ClipboardList, LayoutDashboard, Settings, Users, AlertTriangle, BarChart3, Clock, DollarSign } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getCurrentShift } from '../data/mockData';
 
@@ -70,6 +70,9 @@ export const Layout = () => {
               </NavLink>
               <NavLink to="/admin/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
                 <BarChart3 size={18} /> Reports
+              </NavLink>
+              <NavLink to="/admin/revenue" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                <DollarSign size={18} /> Revenue
               </NavLink>
               <NavLink to="/admin/staff" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
                 <Users size={18} /> Staff

@@ -11,6 +11,7 @@ import { Products } from './pages/Products';
 import { Staff } from './pages/Staff';
 import { Alerts } from './pages/Alerts';
 import { Reports } from './pages/Reports';
+import { Revenue } from './pages/Revenue';
 import { SettingsPage } from './pages/Settings';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -63,6 +64,11 @@ const AppRoutes = () => {
         <Route path="/admin/reports" element={
           <ProtectedRoute allowedRoles={['Admin']}>
             <Reports />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/revenue" element={
+          <ProtectedRoute allowedRoles={['Admin']}>
+            <Revenue />
           </ProtectedRoute>
         } />
         <Route path="/admin/staff" element={
