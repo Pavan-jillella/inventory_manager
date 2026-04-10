@@ -23,12 +23,6 @@ export const Login = () => {
     }
   };
 
-  const quickFill = (u, p) => {
-    setUsername(u);
-    setPassword(p);
-    setError('');
-  };
-
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1.5rem',
@@ -95,14 +89,6 @@ export const Login = () => {
             Sign In
           </button>
         </form>
-
-        <div style={{ marginTop: '1.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Demo Credentials</p>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-            <button className="btn btn-outline btn-sm" onClick={() => quickFill('admin', 'admin')}>Admin</button>
-            <button className="btn btn-outline btn-sm" onClick={() => quickFill('desk', 'desk')}>Front Desk</button>
-          </div>
-        </div>
       </motion.div>
     </div>
   );
