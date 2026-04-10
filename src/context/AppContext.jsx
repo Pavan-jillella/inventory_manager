@@ -53,7 +53,13 @@ export const AppProvider = ({ children }) => {
         if (dbUsers && dbUsers.length > 0) setUsers(dbUsers);
 
         const { data: dbLogs } = await supabase.from('logs').select('*');
-        if (dbLogs && dbLogs.length > 0) setLogs(dbLogs.sort((a,b) => b.timestamp.localeCompare(a.timestamp)));
+        if (dbLogs && dbLogs.length > 0) {
+          setLogs(dbLogs.sort((a,b) => {
+             const tA = a.timestamp || '';
+             const tB = b.timestamp || '';
+             return tB.localeCompare(tA);
+          }));
+        }
 
         const { data: dbSettings } = await supabase.from('settings').select('*').eq('id', 1).single();
         if (dbSettings) {
