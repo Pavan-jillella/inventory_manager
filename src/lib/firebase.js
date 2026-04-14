@@ -9,7 +9,7 @@ import {
   writeBatch,
   getDoc,
 } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -83,14 +83,22 @@ export const writeSettings = async (settings) => {
   await setDoc(doc(db, 'settings', 'app'), settings, { merge: true });
 };
 
-export const uploadProductImage = async (fileOrBlob) => {
+export const uploadProductImage = async (fileOrBlob, onProgress) => {
   if (!storage || !fileOrBlob) return null;
   const ext = fileOrBlob.type?.includes('png') ? 'png' : 'jpg';
   const fileName = `${Date.now()}_${Math.floor(Math.random() * 100000)}.${ext}`;
   const fileRef = ref(storage, `products/${fileName}`);
-  await uploadBytes(fileRef, fileOrBlob, {
+  const task = uploadBytesResumable(fileRef, fileOrBlob, {
     contentType: fileOrBlob.type || 'image/jpeg',
     cacheControl: 'public,max-age=31536000,immutable',
+  });
+  await new Promise((resolve, reject) => {
+    task.on('state_changed', (snapshot) => {
+      if (typeof onProgress === 'function' && snapshot.totalBytes > 0) {
+        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        onProgress(pct);
+      }
+    }, reject, resolve);
   });
   return getDownloadURL(fileRef);
 };

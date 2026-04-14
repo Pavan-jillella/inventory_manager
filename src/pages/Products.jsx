@@ -14,6 +14,7 @@ export const Products = () => {
   const [form, setForm] = useState(emptyProduct);
   const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const categoryOptions = (settings.categories && settings.categories.length > 0)
     ? settings.categories
     : [form.category || 'General'];
@@ -57,31 +58,10 @@ export const Products = () => {
     return { label: 'OK', cls: 'badge-success' };
   };
 
-  const buildOptimizedImage = (file, maxSize = 300, quality = 0.72) => new Promise((resolve) => {
+  const toDataUrl = (file) => new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onerror = () => resolve({ dataUrl: '', blob: null });
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.onerror = () => resolve({ dataUrl: '', blob: null });
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        if (width > height && width > maxSize) { height *= maxSize / width; width = maxSize; }
-        else if (height > maxSize) { width *= maxSize / height; height = maxSize; }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        canvas.toBlob((blob) => resolve({ dataUrl, blob }), 'image/jpeg', quality);
-      };
-      img.src = event.target?.result;
-    };
+    reader.onerror = () => resolve('');
+    reader.onload = () => resolve(String(reader.result || ''));
     reader.readAsDataURL(file);
   });
 
@@ -89,38 +69,35 @@ export const Products = () => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setIsUploadingImage(true);
-    const FAST_UPLOAD_THRESHOLD_BYTES = 450 * 1024;
+    setUploadProgress(0);
     try {
-      if (isFirebaseStorageConfigured && file.size <= FAST_UPLOAD_THRESHOLD_BYTES) {
-        try {
-          const directUrl = await uploadProductImage(file);
-          if (directUrl) {
-            updateForm('image', directUrl);
-            return;
-          }
-        } catch {
-          // Fall through to optimized upload + fallback
+      if (!isFirebaseStorageConfigured) {
+        const localUrl = await toDataUrl(file);
+        if (!localUrl) {
+          showToast('Could not process this image. Try another file.', 'error');
+          return;
         }
-      }
-
-      const { dataUrl: fallbackDataUrl, blob } = await buildOptimizedImage(file);
-      if (!fallbackDataUrl) {
-        showToast('Could not process this image. Try another file.', 'error');
-        return;
-      }
-
-      if (!isFirebaseStorageConfigured || !blob) {
-        updateForm('image', fallbackDataUrl);
+        updateForm('image', localUrl);
+        setUploadProgress(100);
         return;
       }
 
       try {
-        const url = await uploadProductImage(blob);
-        updateForm('image', url || fallbackDataUrl);
-        if (!url) showToast('Saved image locally because cloud upload failed.', 'error');
+        const url = await uploadProductImage(file, (pct) => setUploadProgress(pct));
+        if (!url) {
+          const fallback = await toDataUrl(file);
+          updateForm('image', fallback || '');
+          showToast('Cloud upload returned no URL. Saved locally.', 'error');
+          setUploadProgress(100);
+          return;
+        }
+        updateForm('image', url);
+        setUploadProgress(100);
       } catch {
-        updateForm('image', fallbackDataUrl);
+        const fallback = await toDataUrl(file);
+        updateForm('image', fallback || '');
         showToast('Cloud upload failed. Image saved locally.', 'error');
+        setUploadProgress(100);
       }
     } finally {
       setIsUploadingImage(false);
@@ -201,6 +178,17 @@ export const Products = () => {
                     </>
                   )}
                 </div>
+                {isUploadingImage && (
+                  <div style={{ marginTop: '0.65rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Uploading...</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{uploadProgress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '7px', background: '#e5e7eb', borderRadius: '999px', overflow: 'hidden' }}>
+                      <div style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--accent-gradient)', transition: 'width 0.2s ease' }} />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
