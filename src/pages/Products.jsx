@@ -7,7 +7,7 @@ import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase
 const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purchaseRate: 0, staffRate: 0, guestRate: 0, image: '' };
 
 export const Products = () => {
-  const { items, addItem, updateItem, deleteItem, settings } = useAppContext();
+  const { items, addItem, updateItem, deleteItem, settings, showToast } = useAppContext();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -57,6 +57,34 @@ export const Products = () => {
     return { label: 'OK', cls: 'badge-success' };
   };
 
+  const buildOptimizedImage = (file, maxSize = 300, quality = 0.72) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onerror = () => resolve({ dataUrl: '', blob: null });
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.onerror = () => resolve({ dataUrl: '', blob: null });
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > maxSize) { height *= maxSize / width; width = maxSize; }
+        else if (height > maxSize) { width *= maxSize / height; height = maxSize; }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        canvas.toBlob((blob) => resolve({ dataUrl, blob }), 'image/jpeg', quality);
+      };
+      img.src = event.target?.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
@@ -64,55 +92,36 @@ export const Products = () => {
     const FAST_UPLOAD_THRESHOLD_BYTES = 450 * 1024;
     try {
       if (isFirebaseStorageConfigured && file.size <= FAST_UPLOAD_THRESHOLD_BYTES) {
-        const directUrl = await uploadProductImage(file);
-        updateForm('image', directUrl || '');
+        try {
+          const directUrl = await uploadProductImage(file);
+          if (directUrl) {
+            updateForm('image', directUrl);
+            return;
+          }
+        } catch {
+          // Fall through to optimized upload + fallback
+        }
+      }
+
+      const { dataUrl: fallbackDataUrl, blob } = await buildOptimizedImage(file);
+      if (!fallbackDataUrl) {
+        showToast('Could not process this image. Try another file.', 'error');
         return;
       }
 
-      const imageUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onerror = () => resolve('');
-        reader.onload = (event) => {
-          const img = new window.Image();
-          img.onerror = () => resolve('');
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_SIZE = 300;
-            let width = img.width;
-            let height = img.height;
-            if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-            else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+      if (!isFirebaseStorageConfigured || !blob) {
+        updateForm('image', fallbackDataUrl);
+        return;
+      }
 
-            canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, width, height);
-
-            const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.72);
-            if (!isFirebaseStorageConfigured) {
-              resolve(fallbackDataUrl);
-              return;
-            }
-
-            canvas.toBlob(async (blob) => {
-              if (!blob) {
-                resolve(fallbackDataUrl);
-                return;
-              }
-              try {
-                const url = await uploadProductImage(blob);
-                resolve(url || fallbackDataUrl);
-              } catch {
-                resolve(fallbackDataUrl);
-              }
-            }, 'image/jpeg', 0.72);
-          };
-          img.src = event.target?.result;
-        };
-        reader.readAsDataURL(file);
-      });
-      updateForm('image', imageUrl || '');
+      try {
+        const url = await uploadProductImage(blob);
+        updateForm('image', url || fallbackDataUrl);
+        if (!url) showToast('Saved image locally because cloud upload failed.', 'error');
+      } catch {
+        updateForm('image', fallbackDataUrl);
+        showToast('Cloud upload failed. Image saved locally.', 'error');
+      }
     } finally {
       setIsUploadingImage(false);
     }
