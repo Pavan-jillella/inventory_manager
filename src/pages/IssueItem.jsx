@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart, CreditCard, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { getCurrentShift, CATEGORIES } from '../data/mockData';
+import { getCurrentShift } from '../data/mockData';
 
 export const IssueItem = () => {
-  const { items, logCartUsage, currentUser, getShiftStats } = useAppContext();
+  const { items, logCartUsage, currentUser, getShiftStats, settings } = useAppContext();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [cart, setCart] = useState([]); // [{ item, quantity }]
@@ -146,7 +146,7 @@ export const IssueItem = () => {
 
           {/* Category Pills */}
           <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem', overflowX: 'auto', paddingBottom: '0.15rem' }}>
-            {['All', ...CATEGORIES].map(cat => (
+            {['All', ...(settings.categories || [])].map(cat => (
               <button key={cat}
                 className={`btn ${activeCategory === cat ? 'btn-primary' : 'btn-outline'}`}
                 onClick={() => setActiveCategory(cat)}

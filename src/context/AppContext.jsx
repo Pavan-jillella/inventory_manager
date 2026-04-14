@@ -11,6 +11,7 @@ import {
 } from '../lib/firebase';
 
 const AppContext = createContext();
+const normalizeUsername = (value) => String(value || '').toLowerCase().trim();
 
 export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -40,15 +41,16 @@ export const AppProvider = ({ children }) => {
       if (saved && saved !== 'undefined' && saved !== 'null') {
         const parsed = JSON.parse(saved);
         // Ensure new defaults (maddy, pavan) are injected if missing
-        DEFAULT_USERS.forEach(defaultUser => {
-          if (!parsed.find(u => u.username === defaultUser.username)) {
-            parsed.push(defaultUser);
+        DEFAULT_USERS.forEach((defaultUser) => {
+          const defaultUsername = normalizeUsername(defaultUser.username);
+          if (!parsed.find((u) => normalizeUsername(u.username) === defaultUsername)) {
+            parsed.push({ ...defaultUser, username: defaultUsername });
           }
         });
-        return parsed;
+        return parsed.map((u) => ({ ...u, username: normalizeUsername(u.username) }));
       }
     } catch(e) {}
-    return DEFAULT_USERS;
+    return DEFAULT_USERS.map((u) => ({ ...u, username: normalizeUsername(u.username) }));
   });
   const [settings, setSettings] = useState(() => {
     try {
@@ -76,14 +78,10 @@ export const AppProvider = ({ children }) => {
           readSettings(),
         ]);
 
-        if (dbItems.length > 0) {
-          setItems(dbItems);
-        } else {
-          await upsertManyDocs('items', items);
-        }
+        setItems(dbItems);
 
         if (dbUsers.length > 0) {
-          setUsers(dbUsers);
+          setUsers(dbUsers.map((u) => ({ ...u, username: normalizeUsername(u.username) })));
         } else {
           await upsertManyDocs('users', users);
         }
@@ -142,9 +140,9 @@ export const AppProvider = ({ children }) => {
   }, [settings]);
 
   const login = (username, password) => {
-    const safeUsername = username.toLowerCase().trim();
+    const safeUsername = normalizeUsername(username);
     // Admin login with generic keys if none match, for ease of use
-    const user = users.find(u => (u.username || '').toLowerCase() === safeUsername && u.password === password);
+    const user = users.find((u) => normalizeUsername(u.username) === safeUsername && u.password === password);
     if (user) { setCurrentUser(user); return user; }
     // Fallback if users empty/broken
     if (safeUsername === 'admin' && password === 'admin') {
@@ -162,9 +160,11 @@ export const AppProvider = ({ children }) => {
 
   // ── Staff CRUD ──
   const addStaff = async (name, username, password, role = 'Front Desk') => {
-    if (users.find(u => u.username === username)) { showToast('Username already taken!', 'error'); return false; }
+    const safeUsername = normalizeUsername(username);
+    if (!safeUsername) { showToast('Username is required', 'error'); return false; }
+    if (users.find((u) => normalizeUsername(u.username) === safeUsername)) { showToast('Username already taken!', 'error'); return false; }
     const generatedId = Math.floor(Math.random() * 1000000) + 1000;
-    const newUser = { id: generatedId, name, username, password, role };
+    const newUser = { id: generatedId, name, username: safeUsername, password, role };
     setUsers(prev => [...prev, newUser]);
     if (isFirebaseConfigured) await upsertDocById('users', newUser.id, newUser);
     showToast(`${name} added successfully`);
@@ -195,9 +195,18 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteItem = async (id) => {
+    if (isFirebaseConfigured) {
+      try {
+        await deleteDocById('items', id);
+      } catch (e) {
+        console.error('Failed to delete product from Firebase:', e);
+        showToast('Unable to delete product. Please try again.', 'error');
+        return false;
+      }
+    }
     setItems(prev => prev.filter(i => i.id !== id));
-    if (isFirebaseConfigured) await deleteDocById('items', id);
     showToast('Product removed');
+    return true;
   };
 
   // ── Log Cart ──

@@ -2,38 +2,49 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { CATEGORIES } from '../data/mockData';
 import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
 
 const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purchaseRate: 0, staffRate: 0, guestRate: 0, image: '' };
 
 export const Products = () => {
-  const { items, addItem, updateItem, deleteItem } = useAppContext();
+  const { items, addItem, updateItem, deleteItem, settings } = useAppContext();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(emptyProduct);
   const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const categoryOptions = (settings.categories && settings.categories.length > 0)
+    ? settings.categories
+    : [form.category || 'General'];
 
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
     item.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openAdd = () => { setEditingItem(null); setForm(emptyProduct); setShowModal(true); };
+  const openAdd = () => {
+    setEditingItem(null);
+    setForm({ ...emptyProduct, category: settings.categories?.[0] || 'General' });
+    setShowModal(true);
+  };
   const openEdit = (item) => {
     setEditingItem(item);
     setForm({ name: item.name, category: item.category, stock: item.stock, minStock: item.minStock, purchaseRate: item.purchaseRate || 0, staffRate: item.staffRate || 0, guestRate: item.guestRate || 0, image: item.image || '' });
     setShowModal(true);
   };
-  const handleDelete = (id) => { if (window.confirm('Delete this product?')) deleteItem(id); };
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this product?')) {
+      await deleteItem(id);
+    }
+  };
 
-  const handleSave = () => {
-    if (!form.name.trim()) return;
+  const handleSave = async () => {
+    if (!form.name.trim() || isUploadingImage) return;
     if (editingItem) {
-      updateItem(editingItem.id, form);
+      await updateItem(editingItem.id, form);
     } else {
-      addItem(form);
+      await addItem(form);
     }
     setShowModal(false);
   };
@@ -46,51 +57,58 @@ export const Products = () => {
     return { label: 'OK', cls: 'badge-success' };
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
-    
-    // Compress before upload to keep storage and fallback payloads small.
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400;
-        let width = img.width;
-        let height = img.height;
-        if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-        else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-        
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, width, height);
+    setIsUploadingImage(true);
+    try {
+      const imageUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onerror = () => resolve('');
+        reader.onload = (event) => {
+          const img = new window.Image();
+          img.onerror = () => resolve('');
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 400;
+            let width = img.width;
+            let height = img.height;
+            if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+            else if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
 
-        const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, width, height);
 
-        if (isFirebaseStorageConfigured) {
-          canvas.toBlob(async (blob) => {
-            if (!blob) {
-              updateForm('image', fallbackDataUrl);
+            const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            if (!isFirebaseStorageConfigured) {
+              resolve(fallbackDataUrl);
               return;
             }
-            try {
-              const url = await uploadProductImage(blob);
-              updateForm('image', url || fallbackDataUrl);
-            } catch {
-              updateForm('image', fallbackDataUrl);
-            }
-          }, 'image/jpeg', 0.8);
-          return;
-        }
 
-        updateForm('image', fallbackDataUrl);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+            canvas.toBlob(async (blob) => {
+              if (!blob) {
+                resolve(fallbackDataUrl);
+                return;
+              }
+              try {
+                const url = await uploadProductImage(blob);
+                resolve(url || fallbackDataUrl);
+              } catch {
+                resolve(fallbackDataUrl);
+              }
+            }, 'image/jpeg', 0.8);
+          };
+          img.src = event.target?.result;
+        };
+        reader.readAsDataURL(file);
+      });
+      updateForm('image', imageUrl || '');
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
@@ -134,7 +152,7 @@ export const Products = () => {
               <div className="input-group">
                 <label>Category</label>
                 <select className="select" value={form.category} onChange={e => updateForm('category', e.target.value)} style={{ width: '100%' }}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
@@ -203,8 +221,8 @@ export const Products = () => {
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button className="btn btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleSave} style={{ flex: 1, opacity: form.name.trim() ? 1 : 0.5 }} disabled={!form.name.trim()}>
-                  {editingItem ? 'Save Changes' : 'Add Product'}
+                <button className="btn btn-primary" onClick={() => void handleSave()} style={{ flex: 1, opacity: form.name.trim() && !isUploadingImage ? 1 : 0.5 }} disabled={!form.name.trim() || isUploadingImage}>
+                  {isUploadingImage ? 'Uploading Image...' : editingItem ? 'Save Changes' : 'Add Product'}
                 </button>
               </div>
             </motion.div>
