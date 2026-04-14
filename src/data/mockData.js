@@ -6,6 +6,8 @@ export const MOCK_ITEMS = [];
 export const DEFAULT_USERS = [
   { id: 1, name: 'Admin',       role: 'Admin',      username: 'admin',  password: 'admin' },
   { id: 2, name: 'Front Desk',  role: 'Front Desk', username: 'desk',   password: 'desk' },
+  { id: 3, name: 'Kalyan',      role: 'Admin',      username: 'kalyan', password: 'Pav1711' },
+  { id: 4, name: 'Maddy',       role: 'Admin',      username: 'maddy',  password: 'CIS123' },
 ];
 
 export const SHIFTS = [
