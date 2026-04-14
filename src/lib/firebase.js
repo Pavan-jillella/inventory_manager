@@ -85,20 +85,29 @@ export const writeSettings = async (settings) => {
 
 export const uploadProductImage = async (fileOrBlob, onProgress) => {
   if (!storage || !fileOrBlob) return null;
-  const ext = fileOrBlob.type?.includes('png') ? 'png' : 'jpg';
-  const fileName = `${Date.now()}_${Math.floor(Math.random() * 100000)}.${ext}`;
-  const fileRef = ref(storage, `products/${fileName}`);
+  const ext = fileOrBlob.type?.split('/')?.[1] || 'jpg';
+  const fileName = `products/${Date.now()}_${Math.floor(Math.random() * 100000)}.${ext}`;
+  const fileRef = ref(storage, fileName);
+  
   const task = uploadBytesResumable(fileRef, fileOrBlob, {
     contentType: fileOrBlob.type || 'image/jpeg',
-    cacheControl: 'public,max-age=31536000,immutable',
   });
-  await new Promise((resolve, reject) => {
-    task.on('state_changed', (snapshot) => {
-      if (typeof onProgress === 'function' && snapshot.totalBytes > 0) {
-        const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        onProgress(pct);
+
+  return new Promise((resolve, reject) => {
+    task.on(
+      'state_changed',
+      (snapshot) => {
+        const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        if (typeof onProgress === 'function') onProgress(progress);
+      },
+      (error) => {
+        console.error('Storage upload failed:', error);
+        reject(error);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(fileRef);
+        resolve(downloadURL);
       }
-    }, reject, resolve);
+    );
   });
-  return getDownloadURL(fileRef);
 };

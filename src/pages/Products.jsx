@@ -68,39 +68,56 @@ export const Products = () => {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
+
+    // Check file size if we aren't using Firebase Storage (to prevent Firestore/LocalStorage crashes)
+    if (!isFirebaseStorageConfigured && file.size > 1024 * 1024) {
+      showToast('File too large for local sync (~1MB limit). Please configure Firebase Storage for direct uploads.', 'error');
+      return;
+    }
+
     setIsUploadingImage(true);
     setUploadProgress(0);
+
     try {
       if (!isFirebaseStorageConfigured) {
+        setUploadProgress(20);
         const localUrl = await toDataUrl(file);
+        setUploadProgress(100);
         if (!localUrl) {
-          showToast('Could not process this image. Try another file.', 'error');
+          showToast('Could not process this image.', 'error');
           return;
         }
         updateForm('image', localUrl);
-        setUploadProgress(100);
+        showToast('Image attached (Local Sync Only)');
         return;
       }
 
+      // DIRECT CLOUD UPLOAD (NO COMPRESSION)
       try {
-        const url = await uploadProductImage(file, (pct) => setUploadProgress(pct));
-        if (!url) {
-          const fallback = await toDataUrl(file);
-          updateForm('image', fallback || '');
-          showToast('Cloud upload returned no URL. Saved locally.', 'error');
-          setUploadProgress(100);
-          return;
+        const url = await uploadProductImage(file, (pct) => {
+          setUploadProgress(pct);
+        });
+        
+        if (url) {
+          updateForm('image', url);
+          showToast('Image uploaded directly to cloud storage!');
+        } else {
+          throw new Error('No URL returned');
         }
-        updateForm('image', url);
-        setUploadProgress(100);
-      } catch {
+      } catch (err) {
+        console.error('Upload error:', err);
+        // Final fallback to local string if cloud fails
         const fallback = await toDataUrl(file);
         updateForm('image', fallback || '');
-        showToast('Cloud upload failed. Image saved locally.', 'error');
-        setUploadProgress(100);
+        showToast('Cloud upload failed. Saved to local state.', 'warning');
       }
+    } catch (err) {
+      showToast('Image process failed', 'error');
     } finally {
-      setIsUploadingImage(false);
+      setTimeout(() => {
+        setIsUploadingImage(false);
+        setUploadProgress(0);
+      }, 1000);
     }
   };
 
