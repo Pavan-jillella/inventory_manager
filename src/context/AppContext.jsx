@@ -238,7 +238,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // ── Log Cart ──
-  const logCartUsage = async (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash', membershipTier = 'None', isFreeAmenity = false) => {
+  const logCartUsage = async (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash', membershipTier = 'None') => {
     for (const ci of cartItems) {
       const currentItem = items.find(i => i.id === ci.item.id);
       if (!currentItem || currentItem.stock < ci.quantity) {
@@ -268,7 +268,7 @@ export const AppProvider = ({ children }) => {
     const batchId = Date.now();
     
     const newLogs = cartItems.map((ci, idx) => {
-      const rate = isFreeAmenity ? 0 : (rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0));
+      const rate = ci.isFree ? 0 : (rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0));
       return {
         id: batchId + idx, 
         batchId, 
@@ -276,16 +276,16 @@ export const AppProvider = ({ children }) => {
         itemName: ci.item.name, 
         itemCategory: ci.item.category,
         quantity: ci.quantity, 
-        rateType: isFreeAmenity ? 'Amenity' : rateType, 
+        rateType: ci.isFree ? 'Amenity' : rateType, 
         unitRate: rate, 
         totalAmount: rate * ci.quantity,
         purchaseRate: ci.item.purchaseRate || 0, 
         purchaseCost: (ci.item.purchaseRate || 0) * ci.quantity,
-        paymentMethod: isFreeAmenity ? 'Amenity' : paymentMethod, 
+        paymentMethod: ci.isFree ? 'Amenity' : paymentMethod, 
         roomNumber: roomNumber || '', 
         notes: notes || '',
         membershipTier: membershipTier || 'None',
-        isFreeAmenity: Boolean(isFreeAmenity),
+        isFreeAmenity: Boolean(ci.isFree),
         staffId: currentUser?.id, 
         staffName: currentUser?.name,
         shift: shift.id, 

@@ -8,14 +8,13 @@ export const IssueItem = () => {
   const { items, logCartUsage, currentUser, getShiftStats, settings } = useAppContext();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
-  const [cart, setCart] = useState([]); // [{ item, quantity }]
+  const [cart, setCart] = useState([]); // [{ item, quantity, isFree }]
   const [roomNumber, setRoomNumber] = useState('');
 
   const [notes, setNotes] = useState('');
   const [rateType, setRateType] = useState('guest');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [membershipTier, setMembershipTier] = useState('None');
-  const [isFreeAmenity, setIsFreeAmenity] = useState(false);
   const searchInputRef = useRef(null);
 
   const shift = getCurrentShift();
@@ -36,8 +35,12 @@ export const IssueItem = () => {
       if (existing) {
         return prev.map(c => c.item.id === item.id ? { ...c, quantity: Math.min(c.quantity + 1, item.stock) } : c);
       }
-      return [...prev, { item, quantity: 1 }];
+      return [...prev, { item, quantity: 1, isFree: false }];
     });
+  };
+
+  const toggleItemFree = (itemId) => {
+    setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, isFree: !c.isFree } : c));
   };
 
   const updateCartQty = (itemId, delta) => {
@@ -57,18 +60,18 @@ export const IssueItem = () => {
   };
 
   const cartTotal = useMemo(() => {
-    if (isFreeAmenity) return 0;
     return cart.reduce((sum, c) => {
+      if (c.isFree) return sum;
       const rate = rateType === 'staff' ? (c.item.staffRate || 0) : (c.item.guestRate || 0);
       return sum + rate * c.quantity;
     }, 0);
-  }, [cart, rateType, isFreeAmenity]);
+  }, [cart, rateType]);
 
   const cartQty = cart.reduce((s, c) => s + c.quantity, 0);
 
   const handleSubmit = async () => {
     if (cart.length === 0) return;
-    const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod, membershipTier, isFreeAmenity);
+    const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod, membershipTier);
     if (success) {
       setCart([]);
       setRoomNumber('');
@@ -76,7 +79,6 @@ export const IssueItem = () => {
       setSearch('');
       setPaymentMethod('cash');
       setMembershipTier('None');
-      setIsFreeAmenity(false);
       searchInputRef.current?.focus();
     }
   };
@@ -237,15 +239,26 @@ export const IssueItem = () => {
           </div>
 
           {/* Cart Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1.5px solid rgba(0,0,0,0.08)', paddingBottom: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <ShoppingCart size={18} style={{ color: 'var(--accent-color)' }} />
-              <span style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
-                Current Cart
-              </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '2px solid rgba(0,0,0,0.04)', paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{ padding: '0.4rem', background: 'var(--accent-gradient)', borderRadius: '8px', display: 'flex' }}>
+                <ShoppingCart size={18} style={{ color: 'white' }} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-primary)', display: 'block' }}>
+                  Register
+                </span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{cart.length === 0 ? 'No items' : `${cartQty} total qty`}</span>
+              </div>
             </div>
             {cart.length > 0 && (
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>{cart.length} unique items</span>
+              <button 
+                className="btn btn-ghost" 
+                style={{ height: '32px', fontSize: '0.75rem', color: 'var(--danger-color)', padding: '0 0.75rem', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.05)' }} 
+                onClick={() => setCart([])}
+              >
+                Clear All
+              </button>
             )}
           </div>
 
@@ -287,15 +300,30 @@ export const IssueItem = () => {
                         </button>
                       </div>
                       
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f9fafb', padding: '4px 8px', borderRadius: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: c.isFree ? '#f0fdf4' : '#f9fafb', padding: '4px 8px', borderRadius: '6px', border: c.isFree ? '1px solid #bbf7d0' : '1px solid transparent' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button onClick={() => updateCartQty(c.item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
                           <span style={{ fontSize: '0.8rem', fontWeight: 800, minWidth: '22px', textAlign: 'center' }}>{c.quantity}</span>
                           <button onClick={() => updateCartQty(c.item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                           <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>${rate.toFixed(2)} × {c.quantity}</span>
-                           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-dark)' }}>${(rate * c.quantity).toFixed(2)}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button 
+                            onClick={() => toggleItemFree(c.item.id)}
+                            style={{ 
+                              padding: '2px 8px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 700,
+                              background: c.isFree ? 'var(--success-color)' : 'transparent',
+                              color: c.isFree ? 'white' : 'var(--text-muted)',
+                              border: `1px solid ${c.isFree ? 'var(--success-color)' : 'rgba(0,0,0,0.1)'}`
+                            }}
+                          >
+                            FREE
+                          </button>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textDecoration: c.isFree ? 'line-through' : 'none' }}>${rate.toFixed(2)} × {c.quantity}</span>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: c.isFree ? 'var(--success-color)' : 'var(--accent-dark)' }}>
+                              {c.isFree ? 'Benefit' : `$${(rate * c.quantity).toFixed(2)}`}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </motion.div>
@@ -310,34 +338,25 @@ export const IssueItem = () => {
             <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '0.75rem', overflowY: 'auto' }}>
               
               {/* Membership Tier */}
-              <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{ marginBottom: '0.75rem', position: 'relative', zIndex: 10 }}>
                 <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Choice Privileges Tier</label>
                 <select 
                   className="select" 
                   value={membershipTier} 
-                  onChange={e => {
-                    setMembershipTier(e.target.value);
-                    if (e.target.value !== 'None' && e.target.value !== 'Member') setIsFreeAmenity(true);
-                  }}
-                  style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem' }}
+                  onChange={e => setMembershipTier(e.target.value)}
+                  style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem', background: 'white' }}
                 >
                   {MEMBERSHIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
 
-              {/* Free Amenity Toggle */}
-              <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', background: isFreeAmenity ? '#fff7ed' : 'transparent', borderRadius: '0.5rem', border: isFreeAmenity ? '1px solid #fed7aa' : '1px solid transparent' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: isFreeAmenity ? '#c2410c' : 'var(--text-primary)' }}>Free Amenity</div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Tier member benefit (Price: $0)</div>
+              {/* Notice Area */}
+              {membershipTier !== 'None' && (
+                <div style={{ marginBottom: '0.75rem', padding: '0.5rem', background: '#ecfdf5', borderRadius: '0.6rem', border: '1px solid #a7f3d0' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--success-color)' }}>{membershipTier} Member Active</div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Tap 'FREE' on items to apply selective benefits.</div>
                 </div>
-                <label style={{ position: 'relative', width: '36px', height: '20px', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={isFreeAmenity} onChange={() => setIsFreeAmenity(!isFreeAmenity)} style={{ opacity: 0, width: 0, height: 0 }} />
-                  <span style={{ position: 'absolute', inset: 0, borderRadius: '999px', transition: 'all 0.2s ease', background: isFreeAmenity ? '#f97316' : '#e5e7eb' }}>
-                    <span style={{ position: 'absolute', top: '2px', left: isFreeAmenity ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: 'white', transition: 'left 0.2s ease' }} />
-                  </span>
-                </label>
-              </div>
+              )}
 
               <div style={{ marginBottom: '0.5rem' }}>
                 <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Room Number</label>
@@ -376,27 +395,45 @@ export const IssueItem = () => {
                 </div>
               </div>
 
-              {/* Staff + Total */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.65rem', background: '#f9fafb', borderRadius: '0.5rem', marginBottom: '0.6rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.55rem', fontWeight: 700 }}>
-                    {currentUser?.name?.charAt(0)}
-                  </div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{currentUser?.name}</span>
+                       {/* Total Breakdown Section */}
+              <div style={{ background: '#f8fafc', borderRadius: '1rem', padding: '1rem', marginBottom: '1rem', border: '1px solid rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Retail Price</span>
+                  <span style={{ fontWeight: 600 }}>${cart.reduce((s,c) => s + (rateType === 'staff' ? c.item.staffRate : c.item.guestRate) * c.quantity, 0).toFixed(2)}</span>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent-dark)', fontFamily: 'var(--font-display)' }}>${cartTotal.toFixed(2)}</div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{cartQty} items · {rateType} · {paymentMethod}</div>
+                {cart.some(c => c.isFree) && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--success-color)' }}>
+                    <span>Benefit Savings</span>
+                    <span style={{ fontWeight: 600 }}>-${cart.reduce((s,c) => c.isFree ? s + (rateType === 'staff' ? c.item.staffRate : c.item.guestRate) * c.quantity : s, 0).toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)', margin: '0.5rem 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 800 }}>Total Due</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--accent-dark)', fontFamily: 'var(--font-display)' }}>${cartTotal.toFixed(2)}</span>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>{cartQty} Product{cartQty !== 1 ? 's' : ''}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* Submit */}
-              <button className="btn btn-primary" onClick={() => void handleSubmit()} style={{ width: '100%', padding: '0.7rem', fontSize: '0.85rem' }}>
-                <Check size={16} /> Issue {cart.length} Item{cart.length > 1 ? 's' : ''}
-                <span style={{ marginLeft: 'auto', fontSize: '0.65rem', opacity: 0.7, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  <Zap size={10} /> Enter
+              {/* Submit - Action Button */}
+              <motion.button 
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                className="btn btn-primary" 
+                onClick={() => void handleSubmit()} 
+                style={{ 
+                  width: '100%', padding: '1rem', fontSize: '1rem', fontWeight: 800, borderRadius: '1rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  boxShadow: '0 10px 25px -5px var(--accent-light)',
+                  border: 'none'
+                }}
+              >
+                <Check size={20} /> Finish Transaction
+                <span style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Zap size={10} fill="white" /> ENTER
                 </span>
-              </button>
+              </motion.button>
             </div>
           )}
         </div>
