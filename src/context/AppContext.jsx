@@ -13,7 +13,13 @@ import {
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cis_currentUser');
+      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+    } catch(e) {}
+    return null;
+  });
   const [items, setItems] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_items');
@@ -114,6 +120,13 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('cis_items', JSON.stringify(items)); }, [items]);
   useEffect(() => { localStorage.setItem('cis_logs', JSON.stringify(logs)); }, [logs]);
   useEffect(() => { localStorage.setItem('cis_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('cis_currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('cis_currentUser');
+    }
+  }, [currentUser]);
   useEffect(() => {
     localStorage.setItem('cis_settings', JSON.stringify(settings));
     if (isFirebaseConfigured) {
