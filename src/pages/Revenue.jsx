@@ -7,8 +7,11 @@ import { useAppContext } from '../context/AppContext';
 const COLORS = ['#059669', '#3b82f6', '#b89771', '#d97706', '#8b5cf6'];
 
 export const Revenue = () => {
-  const { logs, items } = useAppContext();
+  const { logs, items, getLogsForYear } = useAppContext();
   const [period, setPeriod] = useState('7');
+  const ytdLogs = useMemo(() => getLogsForYear(), [logs, getLogsForYear]);
+  const ytdRevenue = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0), 0);
+  const ytdProfit = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0) - (l.purchaseCost || 0), 0);
 
   const periodLogs = useMemo(() => {
     const now = new Date();
@@ -110,6 +113,28 @@ export const Revenue = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* YTD Financial Summary */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+        style={{ 
+          background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', 
+          padding: '1.25rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '2rem',
+          boxShadow: 'var(--shadow-soft)'
+        }}
+      >
+        <div style={{ padding: '0.5rem 1rem', background: 'var(--accent-bg)', borderRadius: '0.75rem' }}>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Year-to-Date Revenue</div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--accent-dark)', fontFamily: 'var(--font-display)' }}>${ytdRevenue.toLocaleString()}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>YTD Profit</div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--success-color)' }}>${ytdProfit.toLocaleString()}</div>
+        </div>
+        <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Showing cumulative statistics for <strong>{new Date().getFullYear()}</strong>
+        </div>
+      </motion.div>
 
       {/* Revenue Trend Area Chart */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>

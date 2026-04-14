@@ -8,13 +8,19 @@ import { SHIFTS, getCurrentShift } from '../data/mockData';
 const COLORS = ['#b89771', '#8f7354', '#059669', '#d97706', '#dc2626'];
 
 export const Dashboard = () => {
-  const { items, logs, getShiftStats } = useAppContext();
+  const { items, logs, getShiftStats, getLogsForYear } = useAppContext();
+  const currentYear = new Date().getFullYear();
+  const ytdLogs = useMemo(() => getLogsForYear(currentYear), [logs, getLogsForYear, currentYear]);
 
   const totalStock = items.reduce((s, i) => s + i.stock, 0);
   const lowStockItems = items.filter(i => i.stock <= i.minStock);
   const todayLogs = logs.filter(l => new Date(l.timestamp).toDateString() === new Date().toDateString());
   const totalIssues = todayLogs.length;
   const todayRevenue = todayLogs.reduce((s, l) => s + (l.totalAmount || 0), 0);
+
+  const ytdRevenue = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0), 0);
+  const ytdCost = ytdLogs.reduce((s, l) => s + (l.purchaseCost || 0), 0);
+  const ytdProfit = ytdRevenue - ytdCost;
 
   const mostIssued = useMemo(() => {
     const counts = {};
@@ -83,6 +89,32 @@ export const Dashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      {/* YTD Snapshot Banner */}
+      <motion.div 
+        initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
+        style={{ 
+          marginBottom: '1.5rem', padding: '1.25rem 1.75rem', borderRadius: 'var(--radius-lg)',
+          background: 'linear-gradient(135deg, var(--accent-dark), hsla(35,30%,42%,1))',
+          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: 'var(--shadow-warm)'
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '0.75rem', opacity: 0.8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Year-to-Date Snapshot ({currentYear})</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginTop: '0.25rem' }}>${ytdRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })} Total Sales</div>
+        </div>
+        <div style={{ display: 'flex', gap: '2rem', textAlign: 'right' }}>
+          <div>
+            <div style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 600, textTransform: 'uppercase' }}>YTD Profit</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>${ytdProfit.toLocaleString()}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 600, textTransform: 'uppercase' }}>YTD Items Sold</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{ytdLogs.reduce((s,l) => s + l.quantity, 0)}</div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Shift Performance */}
       <div className="grid grid-cols-3 gap-6" style={{ marginBottom: '1.5rem' }}>

@@ -145,6 +145,12 @@ export const RecentActivity = () => {
                           </div>
                           <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
                             {new Date(log.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} · {log.staffName} · {log.paymentMethod || 'cash'} · {log.rateType}
+                            {log.membershipTier && log.membershipTier !== 'None' && (
+                              <span style={{ marginLeft: '0.4rem', color: 'var(--accent-dark)', fontWeight: 600 }}>({log.membershipTier})</span>
+                            )}
+                            {log.isFreeAmenity && (
+                              <span className="badge badge-success" style={{ fontSize: '0.45rem', marginLeft: '0.4rem', padding: '0.1rem 0.3rem' }}>FREE AMENITY</span>
+                            )}
                           </div>
                         </div>
                         {editingId === log.id ? (
@@ -191,7 +197,12 @@ export const RecentActivity = () => {
                         </div>
                       ) : <span style={{ fontWeight: 600 }}>{log.quantity}</span>}
                     </td>
-                    <td><span className={`badge ${log.rateType === 'staff' ? 'badge-warning' : 'badge-accent'}`} style={{ fontSize: '0.5rem' }}>{log.rateType}</span> <span style={{ fontSize: '0.75rem' }}>${log.unitRate?.toFixed(2)}</span></td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span className={`badge ${log.rateType === 'staff' ? 'badge-warning' : 'badge-accent'}`} style={{ fontSize: '0.5rem', alignSelf: 'flex-start' }}>{log.rateType}</span>
+                        {log.membershipTier && log.membershipTier !== 'None' && <span style={{ fontSize: '0.6rem', color: 'var(--accent-dark)', fontWeight: 600 }}>{log.membershipTier}</span>}
+                      </div>
+                    </td>
                     <td style={{ fontWeight: 600, color: 'var(--accent-dark)' }}>${editingId === log.id ? (log.unitRate * editQty).toFixed(2) : log.totalAmount?.toFixed(2)}</td>
                     <td>{log.paymentMethod === 'card' ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.75rem', color: '#3b82f6' }}><CreditCard size={11} /> Card</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--success-color)' }}><Banknote size={11} /> Cash</span>}</td>
                     <td>{log.roomNumber ? <span style={{ fontWeight: 600, color: 'var(--accent-dark)' }}>#{log.roomNumber}</span> : '—'}</td>

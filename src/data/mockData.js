@@ -1,4 +1,5 @@
 export const CATEGORIES = ['Drinks', 'Snacks', 'Essentials', 'Medicines'];
+export const MEMBERSHIP_TIERS = ['None', 'Member', 'Gold', 'Platinum', 'Diamond', 'Titanium'];
 
 export const MOCK_ITEMS = [];
 

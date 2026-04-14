@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart, CreditCard, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { getCurrentShift } from '../data/mockData';
+import { getCurrentShift, MEMBERSHIP_TIERS } from '../data/mockData';
 
 export const IssueItem = () => {
   const { items, logCartUsage, currentUser, getShiftStats, settings } = useAppContext();
@@ -14,6 +14,8 @@ export const IssueItem = () => {
   const [notes, setNotes] = useState('');
   const [rateType, setRateType] = useState('guest');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [membershipTier, setMembershipTier] = useState('None');
+  const [isFreeAmenity, setIsFreeAmenity] = useState(false);
   const searchInputRef = useRef(null);
 
   const shift = getCurrentShift();
@@ -55,23 +57,26 @@ export const IssueItem = () => {
   };
 
   const cartTotal = useMemo(() => {
+    if (isFreeAmenity) return 0;
     return cart.reduce((sum, c) => {
       const rate = rateType === 'staff' ? (c.item.staffRate || 0) : (c.item.guestRate || 0);
       return sum + rate * c.quantity;
     }, 0);
-  }, [cart, rateType]);
+  }, [cart, rateType, isFreeAmenity]);
 
   const cartQty = cart.reduce((s, c) => s + c.quantity, 0);
 
   const handleSubmit = async () => {
     if (cart.length === 0) return;
-    const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod);
+    const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod, membershipTier, isFreeAmenity);
     if (success) {
       setCart([]);
       setRoomNumber('');
       setNotes('');
       setSearch('');
       setPaymentMethod('cash');
+      setMembershipTier('None');
+      setIsFreeAmenity(false);
       searchInputRef.current?.focus();
     }
   };
@@ -300,7 +305,38 @@ export const IssueItem = () => {
 
           {/* Details Fields */}
           {cart.length > 0 && (
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '0.75rem' }}>
+            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '0.75rem', overflowY: 'auto' }}>
+              
+              {/* Membership Tier */}
+              <div style={{ marginBottom: '0.5rem' }}>
+                <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Choice Privileges Tier</label>
+                <select 
+                  className="select" 
+                  value={membershipTier} 
+                  onChange={e => {
+                    setMembershipTier(e.target.value);
+                    if (e.target.value !== 'None' && e.target.value !== 'Member') setIsFreeAmenity(true);
+                  }}
+                  style={{ width: '100%', fontSize: '0.8rem', padding: '0.4rem' }}
+                >
+                  {MEMBERSHIP_TIERS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              {/* Free Amenity Toggle */}
+              <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem', background: isFreeAmenity ? '#fff7ed' : 'transparent', borderRadius: '0.5rem', border: isFreeAmenity ? '1px solid #fed7aa' : '1px solid transparent' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: isFreeAmenity ? '#c2410c' : 'var(--text-primary)' }}>Free Amenity</div>
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Tier member benefit (Price: $0)</div>
+                </div>
+                <label style={{ position: 'relative', width: '36px', height: '20px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={isFreeAmenity} onChange={() => setIsFreeAmenity(!isFreeAmenity)} style={{ opacity: 0, width: 0, height: 0 }} />
+                  <span style={{ position: 'absolute', inset: 0, borderRadius: '999px', transition: 'all 0.2s ease', background: isFreeAmenity ? '#f97316' : '#e5e7eb' }}>
+                    <span style={{ position: 'absolute', top: '2px', left: isFreeAmenity ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: 'white', transition: 'left 0.2s ease' }} />
+                  </span>
+                </label>
+              </div>
+
               <div style={{ marginBottom: '0.5rem' }}>
                 <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem', display: 'block' }}>Room Number</label>
                 <div style={{ position: 'relative' }}>

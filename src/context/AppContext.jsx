@@ -135,6 +135,10 @@ export const AppProvider = ({ children }) => {
       }
     };
     fetchFirebaseData();
+    
+    // AUTO-REFRESH: Keep devices in sync by fetching fresh data every 45 seconds
+    const interval = setInterval(fetchFirebaseData, 45000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -234,7 +238,7 @@ export const AppProvider = ({ children }) => {
   };
 
   // ── Log Cart ──
-  const logCartUsage = async (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash') => {
+  const logCartUsage = async (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash', membershipTier = 'None', isFreeAmenity = false) => {
     for (const ci of cartItems) {
       const currentItem = items.find(i => i.id === ci.item.id);
       if (!currentItem || currentItem.stock < ci.quantity) {
@@ -264,14 +268,29 @@ export const AppProvider = ({ children }) => {
     const batchId = Date.now();
     
     const newLogs = cartItems.map((ci, idx) => {
-      const rate = rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0);
+      const rate = isFreeAmenity ? 0 : (rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0));
       return {
-        id: batchId + idx, batchId, itemId: ci.item.id, itemName: ci.item.name, itemCategory: ci.item.category,
-        quantity: ci.quantity, rateType, unitRate: rate, totalAmount: rate * ci.quantity,
-        purchaseRate: ci.item.purchaseRate || 0, purchaseCost: (ci.item.purchaseRate || 0) * ci.quantity,
-        paymentMethod, roomNumber: roomNumber || '', notes: notes || '',
-        staffId: currentUser?.id, staffName: currentUser?.name,
-        shift: shift.id, shiftLabel: shift.label, timestamp: new Date().toISOString(),
+        id: batchId + idx, 
+        batchId, 
+        itemId: ci.item.id, 
+        itemName: ci.item.name, 
+        itemCategory: ci.item.category,
+        quantity: ci.quantity, 
+        rateType: isFreeAmenity ? 'Amenity' : rateType, 
+        unitRate: rate, 
+        totalAmount: rate * ci.quantity,
+        purchaseRate: ci.item.purchaseRate || 0, 
+        purchaseCost: (ci.item.purchaseRate || 0) * ci.quantity,
+        paymentMethod: isFreeAmenity ? 'Amenity' : paymentMethod, 
+        roomNumber: roomNumber || '', 
+        notes: notes || '',
+        membershipTier: membershipTier || 'None',
+        isFreeAmenity: Boolean(isFreeAmenity),
+        staffId: currentUser?.id, 
+        staffName: currentUser?.name,
+        shift: shift.id, 
+        shiftLabel: shift.label, 
+        timestamp: new Date().toISOString(),
       };
     });
 
@@ -385,6 +404,12 @@ export const AppProvider = ({ children }) => {
       totalAmount: shiftLogs.reduce((sum, l) => sum + (l.totalAmount || 0), 0),
     };
   };
+  const getLogsForYear = (year = new Date().getFullYear()) => {
+    return logs.filter(l => {
+      if (!l.timestamp) return false;
+      return new Date(l.timestamp).getFullYear() === year;
+    });
+  };
 
   return (
     <AppContext.Provider value={{
@@ -393,7 +418,7 @@ export const AppProvider = ({ children }) => {
       addStaff, removeStaff, 
       addItem, updateItem, deleteItem, 
       logCartUsage, clearRevenueData, factoryReset,
-      setSettings, updateLog, deleteLog, getShiftStats
+      setSettings, updateLog, deleteLog, getShiftStats, getLogsForYear
     }}>
       {children}
     </AppContext.Provider>
