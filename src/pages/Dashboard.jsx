@@ -73,12 +73,13 @@ export const Dashboard = () => {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-4 gap-6" style={{ marginBottom: '1.5rem' }}>
+      <div className="grid grid-cols-5 gap-4" style={{ marginBottom: '1.5rem' }}>
         {[
           { label: 'Total Stock', value: totalStock, icon: <Package size={18} style={{ color: 'var(--accent-color)' }} />, color: 'var(--text-primary)' },
           { label: 'Low Stock', value: lowStockItems.length, icon: <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} />, color: lowStockItems.length > 0 ? 'var(--warning-color)' : 'var(--success-color)' },
           { label: 'Total Issues', value: totalIssues, icon: <TrendingUp size={18} style={{ color: 'var(--success-color)' }} />, color: 'var(--text-primary)' },
-          { label: "Today's Revenue", value: `$${todayRevenue.toFixed(2)}`, icon: <DollarSign size={18} style={{ color: 'var(--accent-color)' }} />, color: 'var(--accent-dark)' },
+          { label: "Today's Sales", value: `$${todayRevenue.toFixed(2)}`, icon: <DollarSign size={18} style={{ color: 'var(--accent-color)' }} />, color: 'var(--accent-dark)' },
+          { label: "YTD Revenue", value: `$${ytdRevenue.toFixed(0)}`, icon: <TrendingUp size={18} style={{ color: 'var(--success-color)' }} />, color: 'var(--success-color)' },
         ].map((stat, i) => (
           <motion.div key={i} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>

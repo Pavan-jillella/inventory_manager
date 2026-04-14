@@ -204,6 +204,19 @@ export const SettingsPage = () => {
           >
             <Trash2 size={14} /> {isResetting ? 'Resetting Everything...' : 'Factory Reset (Wipe Entire Website Clean)'}
           </button>
+
+          <button 
+            className="btn btn-outline" 
+            onClick={async () => {
+              if (window.confirm('Delete ONLY historical revenue logs from the Cloud Database? Items and Staff will stay.')) {
+                await clearRevenueData();
+                window.location.reload();
+              }
+            }} 
+            style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)', alignSelf: 'flex-start', fontSize: '0.75rem' }}
+          >
+            <Trash2 size={12} /> Force Clear Cloud Logs Only
+          </button>
         </div>
       </motion.div>
     </div>

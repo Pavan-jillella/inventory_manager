@@ -237,65 +237,67 @@ export const IssueItem = () => {
           </div>
 
           {/* Cart Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1.5px solid rgba(0,0,0,0.08)', paddingBottom: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <ShoppingCart size={16} style={{ color: 'var(--accent-color)' }} />
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>
-                Cart ({cart.length})
+              <ShoppingCart size={18} style={{ color: 'var(--accent-color)' }} />
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
+                Current Cart
               </span>
             </div>
             {cart.length > 0 && (
-              <button className="btn btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', color: 'var(--danger-color)' }} onClick={() => setCart([])}>
-                Clear
-              </button>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 600 }}>{cart.length} unique items</span>
             )}
           </div>
 
-          {/* Cart Items */}
-          <div style={{ flex: 1, overflowY: 'auto', marginBottom: '0.75rem', minHeight: 0 }}>
-            <AnimatePresence>
+          {/* Cart Items List */}
+          <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', minHeight: 0, paddingRight: '4px' }}>
+            <AnimatePresence mode="popLayout">
               {cart.length === 0 ? (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '1.5rem' }}>
-                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
-                    <ShoppingCart size={22} style={{ color: 'var(--accent-light)', opacity: 0.6 }} />
-                  </div>
-                  <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', fontSize: '0.95rem' }}>Tap items to add</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Add multiple items before issuing</p>
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '2rem' }}>
+                  <Package size={40} style={{ color: 'var(--accent-light)', opacity: 0.3, marginBottom: '1rem' }} />
+                  <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>Empty Cart</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '0.2rem', lineHeight: 1.4 }}>Select items from the catalog<br/>to begin transaction.</p>
                 </motion.div>
               ) : (
                 cart.map(c => {
                   const rate = rateType === 'staff' ? (c.item.staffRate || 0) : (c.item.guestRate || 0);
                   return (
                     <motion.div
+                      layout
                       key={c.item.id}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9, x: 20 }}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: '0.6rem',
-                        padding: '0.6rem', marginBottom: '0.4rem',
-                        background: 'white', borderRadius: '0.65rem',
-                        border: '1px solid rgba(0,0,0,0.05)',
+                        padding: '0.75rem', marginBottom: '0.6rem',
+                        background: 'white', borderRadius: '10px',
+                        border: '1px solid rgba(0,0,0,0.04)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
                       }}
                     >
-                      <img src={c.item.image} alt={c.item.name} style={{ width: '34px', height: '34px', borderRadius: '0.4rem', objectFit: 'cover' }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item.name}</div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--accent-dark)' }}>${rate.toFixed(2)} ea · ${(rate * c.quantity).toFixed(2)}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                        <button onClick={() => updateCartQty(c.item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Minus size={11} />
-                        </button>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: '20px', textAlign: 'center' }}>{c.quantity}</span>
-                        <button onClick={() => updateCartQty(c.item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Plus size={11} />
+                      <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                        <img src={c.item.image} alt={c.item.name} style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.05)' }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item.name}</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>{c.item.category}</div>
+                        </div>
+                        <button onClick={() => removeFromCart(c.item.id)} style={{ color: 'var(--danger-color)', padding: '4px', opacity: 0.4 }} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.4}>
+                          <X size={14} />
                         </button>
                       </div>
-                      <button onClick={() => removeFromCart(c.item.id)} style={{ color: 'var(--text-muted)', padding: '0.15rem' }}>
-                        <X size={14} />
-                      </button>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f9fafb', padding: '4px 8px', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button onClick={() => updateCartQty(c.item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 800, minWidth: '22px', textAlign: 'center' }}>{c.quantity}</span>
+                          <button onClick={() => updateCartQty(c.item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                           <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>${rate.toFixed(2)} × {c.quantity}</span>
+                           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-dark)' }}>${(rate * c.quantity).toFixed(2)}</div>
+                        </div>
+                      </div>
                     </motion.div>
                   );
                 })
