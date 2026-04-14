@@ -12,7 +12,7 @@ export const Products = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(emptyProduct);
-  const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
+  const [viewMode, setViewMode] = useState('grid'); // 'table', 'grid', 'list'
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const categoryOptions = (settings.categories && settings.categories.length > 0)

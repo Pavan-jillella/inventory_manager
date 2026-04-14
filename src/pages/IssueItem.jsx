@@ -160,8 +160,8 @@ export const IssueItem = () => {
             ))}
           </div>
 
-          {/* Items Grid — Compact */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '0.5rem', alignContent: 'start', paddingRight: '0.25rem' }}>
+          {/* Items Grid — Larger Cards */}
+          <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', alignContent: 'start', paddingRight: '0.4rem' }}>
             {filteredItems.map(item => {
               const inCart = cart.find(c => c.item.id === item.id);
               const isLow = item.stock <= item.minStock;
@@ -170,27 +170,27 @@ export const IssueItem = () => {
                   whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   key={item.id} onClick={() => addToCart(item)}
                   style={{
-                    cursor: 'pointer', padding: '0.5rem',
+                    cursor: 'pointer', padding: '0.85rem',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
                     background: inCart ? 'var(--accent-bg)' : 'rgba(255,255,255,0.7)',
                     backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
                     border: `1.5px solid ${inCart ? 'var(--accent-color)' : 'rgba(0,0,0,0.06)'}`,
-                    borderRadius: '0.85rem', transition: 'all 0.2s ease',
+                    borderRadius: '1.25rem', transition: 'all 0.2s ease',
                     boxShadow: inCart ? 'var(--shadow-warm)' : '0 1px 8px rgba(0,0,0,0.03)',
                     position: 'relative',
                   }}
                 >
-                  {inCart && (
-                    <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-gradient)', color: 'white', fontSize: '0.65rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}>
+                    {inCart && (
+                    <div style={{ position: 'absolute', top: '-8px', right: '-8px', width: '24px', height: '24px', borderRadius: '50%', background: 'var(--accent-gradient)', color: 'white', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                       {inCart.quantity}
                     </div>
                   )}
-                  <div style={{ width: '52px', height: '52px', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '0.35rem', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div style={{ width: '74px', height: '74px', borderRadius: '0.85rem', overflow: 'hidden', marginBottom: '0.6rem', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: '0.7rem', marginBottom: '0.15rem', color: 'var(--text-primary)', lineHeight: 1.25 }}>{item.name}</div>
-                  <div style={{ fontSize: '0.6rem', color: isLow ? 'var(--danger-color)' : 'var(--success-color)', fontWeight: 600 }}>{item.stock} left</div>
-                  <div style={{ fontSize: '0.6rem', color: 'var(--accent-dark)', fontWeight: 500, marginTop: '0.1rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.25rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>{item.name}</div>
+                  <div style={{ fontSize: '0.65rem', color: isLow ? 'var(--danger-color)' : 'var(--success-color)', fontWeight: 700 }}>{item.stock} in stock</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--accent-dark)', fontWeight: 800, marginTop: '0.25rem' }}>
                     ${rateType === 'staff' ? item.staffRate?.toFixed(2) : item.guestRate?.toFixed(2)}
                   </div>
                 </motion.div>
