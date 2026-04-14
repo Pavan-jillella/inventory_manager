@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift, CATEGORIES } from '../data/mockData';
-import { supabase } from '../lib/supabase';
+import {
+  isFirebaseConfigured,
+  readCollection,
+  upsertManyDocs,
+  upsertDocById,
+  deleteDocById,
+  readSettings,
+  writeSettings,
+} from '../lib/firebase';
 
 const AppContext = createContext();
 
@@ -50,27 +58,40 @@ export const AppProvider = ({ children }) => {
   });
   const [toast, setToast] = useState(null);
 
-  // Initial Real Supabase Fetch (If configured)
+  // Initial Firebase Fetch (if configured)
   useEffect(() => {
-    if (!supabase) return;
-    const fetchSupabaseData = async () => {
+    if (!isFirebaseConfigured) return;
+    const fetchFirebaseData = async () => {
       try {
-        const { data: dbItems } = await supabase.from('items').select('*');
-        if (dbItems && dbItems.length > 0) setItems(dbItems);
+        const [dbItems, dbUsers, dbLogs, dbSettings] = await Promise.all([
+          readCollection('items'),
+          readCollection('users'),
+          readCollection('logs'),
+          readSettings(),
+        ]);
 
-        const { data: dbUsers } = await supabase.from('users').select('*');
-        if (dbUsers && dbUsers.length > 0) setUsers(dbUsers);
-
-        const { data: dbLogs } = await supabase.from('logs').select('*');
-        if (dbLogs && dbLogs.length > 0) {
-          setLogs(dbLogs.sort((a,b) => {
-             const tA = a.timestamp || '';
-             const tB = b.timestamp || '';
-             return tB.localeCompare(tA);
-          }));
+        if (dbItems.length > 0) {
+          setItems(dbItems);
+        } else {
+          await upsertManyDocs('items', items);
         }
 
-        const { data: dbSettings } = await supabase.from('settings').select('*').eq('id', 1).single();
+        if (dbUsers.length > 0) {
+          setUsers(dbUsers);
+        } else {
+          await upsertManyDocs('users', users);
+        }
+
+        if (dbLogs.length > 0) {
+          setLogs(dbLogs.sort((a, b) => {
+            const tA = a.timestamp || '';
+            const tB = b.timestamp || '';
+            return tB.localeCompare(tA);
+          }));
+        } else if (logs.length > 0) {
+          await upsertManyDocs('logs', logs);
+        }
+
         if (dbSettings) {
           setSettings({
             hotelName: dbSettings.hotelName || 'Country Inn & Suites',
@@ -78,23 +99,30 @@ export const AppProvider = ({ children }) => {
             categories: dbSettings.categories || CATEGORIES,
             notifications: dbSettings.notifications || { lowStock: true, outOfStock: true, shiftReport: false }
           });
+        } else {
+          await writeSettings(settings);
         }
       } catch (e) {
-        console.error('Supabase fetch error:', e);
+        console.error('Firebase fetch error:', e);
       }
     };
-    fetchSupabaseData();
+    fetchFirebaseData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync to LocalStorage (Immediate persistence)
   useEffect(() => { localStorage.setItem('cis_items', JSON.stringify(items)); }, [items]);
   useEffect(() => { localStorage.setItem('cis_logs', JSON.stringify(logs)); }, [logs]);
   useEffect(() => { localStorage.setItem('cis_users', JSON.stringify(users)); }, [users]);
-  useEffect(() => { 
-    localStorage.setItem('cis_settings', JSON.stringify(settings)); 
-    if (supabase) {
+  useEffect(() => {
+    localStorage.setItem('cis_settings', JSON.stringify(settings));
+    if (isFirebaseConfigured) {
       const syncSettings = async () => {
-        try { await supabase.from('settings').upsert({ id: 1, ...settings }); } catch (e) {}
+        try {
+          await writeSettings(settings);
+        } catch (e) {
+          console.error('Settings sync failed:', e);
+        }
       };
       syncSettings();
     }
@@ -122,29 +150,23 @@ export const AppProvider = ({ children }) => {
   // ── Staff CRUD ──
   const addStaff = async (name, username, password, role = 'Front Desk') => {
     if (users.find(u => u.username === username)) { showToast('Username already taken!', 'error'); return false; }
-    // Generate safe integer ID to bypass out-of-sync PostgreSQL sequences
     const generatedId = Math.floor(Math.random() * 1000000) + 1000;
     const newUser = { id: generatedId, name, username, password, role };
     setUsers(prev => [...prev, newUser]);
-    if (supabase) await supabase.from('users').insert([newUser]);
+    if (isFirebaseConfigured) await upsertDocById('users', newUser.id, newUser);
     showToast(`${name} added successfully`);
     return true;
   };
   const removeStaff = async (userId) => { 
     setUsers(prev => prev.filter(u => u.id !== userId)); 
-    if (supabase) await supabase.from('users').delete().eq('id', userId);
+    if (isFirebaseConfigured) await deleteDocById('users', userId);
     showToast('Staff removed'); 
   };
 
   // ── Item CRUD ──
   const addItem = async (item) => {
-    let newItem = { ...item, stock: item.stock || 0, minStock: item.minStock || 5 };
-    if (supabase) {
-      const { data } = await supabase.from('items').insert([newItem]).select();
-      if (data && data.length > 0) newItem = data[0];
-    } else {
-      newItem.id = Date.now();
-    }
+    const newItem = { ...item, id: Date.now(), stock: item.stock || 0, minStock: item.minStock || 5 };
+    if (isFirebaseConfigured) await upsertDocById('items', newItem.id, newItem);
     setItems(prev => [...prev, newItem]);
     showToast(`${item.name} added to inventory`);
     return true;
@@ -152,13 +174,16 @@ export const AppProvider = ({ children }) => {
 
   const updateItem = async (id, updates) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
-    if (supabase) await supabase.from('items').update(updates).eq('id', id);
+    if (isFirebaseConfigured) {
+      const current = items.find(i => i.id === id);
+      if (current) await upsertDocById('items', id, { ...current, ...updates });
+    }
     showToast('Product updated');
   };
 
   const deleteItem = async (id) => {
     setItems(prev => prev.filter(i => i.id !== id));
-    if (supabase) await supabase.from('items').delete().eq('id', id);
+    if (isFirebaseConfigured) await deleteDocById('items', id);
     showToast('Product removed');
   };
 
@@ -177,12 +202,14 @@ export const AppProvider = ({ children }) => {
       return ce ? { ...i, stock: i.stock - ce.quantity } : i;
     }));
 
-    // If using supabase, we should arguably execute this decrement on DB
-    if (supabase) {
+    if (isFirebaseConfigured) {
       for (const ci of cartItems) {
         const currentItem = items.find(i => i.id === ci.item.id);
-        if (currentItem) {
-          await supabase.from('items').update({ stock: currentItem.stock - ci.quantity }).eq('id', ci.item.id);
+        if (!currentItem) continue;
+        try {
+          await upsertDocById('items', ci.item.id, { ...currentItem, stock: currentItem.stock - ci.quantity });
+        } catch (e) {
+          console.error('Firebase item sync failed:', e);
         }
       }
     }
@@ -203,7 +230,13 @@ export const AppProvider = ({ children }) => {
     });
 
     setLogs(prev => [...newLogs.reverse(), ...prev]);
-    if (supabase) await supabase.from('logs').insert(newLogs);
+    if (isFirebaseConfigured) {
+      try {
+        await upsertManyDocs('logs', newLogs);
+      } catch (e) {
+        console.error('Firebase log sync failed:', e);
+      }
+    }
 
     const totalQty = cartItems.reduce((s, ci) => s + ci.quantity, 0);
     showToast(`${cartItems.length} item(s), ${totalQty} qty issued${roomNumber ? ` → Room ${roomNumber}` : ''}`);
@@ -235,11 +268,11 @@ export const AppProvider = ({ children }) => {
       return l;
     }));
 
-    if (supabase && updatedLog) {
-      await supabase.from('logs').update(updatedLog).eq('id', logId);
+    if (isFirebaseConfigured && updatedLog) {
+      await upsertDocById('logs', logId, updatedLog);
       if (stockDiff !== 0 && itemId) {
         const currentItem = items.find(i => i.id === itemId);
-        if (currentItem) await supabase.from('items').update({ stock: currentItem.stock + stockDiff }).eq('id', itemId);
+        if (currentItem) await upsertDocById('items', itemId, { ...currentItem, stock: currentItem.stock + stockDiff });
       }
     }
     showToast('Entry updated');
@@ -251,13 +284,13 @@ export const AppProvider = ({ children }) => {
       setItems(prev => prev.map(i =>
         i.id === log.itemId ? { ...i, stock: i.stock + log.quantity } : i
       ));
-      if (supabase) {
+      if (isFirebaseConfigured) {
         const currentItem = items.find(i => i.id === log.itemId);
-        if (currentItem) await supabase.from('items').update({ stock: currentItem.stock + log.quantity }).eq('id', log.itemId);
+        if (currentItem) await upsertDocById('items', log.itemId, { ...currentItem, stock: currentItem.stock + log.quantity });
       }
     }
     setLogs(prev => prev.filter(l => l.id !== logId));
-    if (supabase) await supabase.from('logs').delete().eq('id', logId);
+    if (isFirebaseConfigured) await deleteDocById('logs', logId);
     showToast('Entry deleted, stock restored');
   };
 

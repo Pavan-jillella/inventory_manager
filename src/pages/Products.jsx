@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { CATEGORIES } from '../data/mockData';
+import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
 
 const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purchaseRate: 0, staffRate: 0, guestRate: 0, image: '' };
 
@@ -49,13 +50,13 @@ export const Products = () => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     
-    // Compress image natively before Base64 to prevent localStorage/Supabase payload limits
+    // Compress before upload to keep storage and fallback payloads small.
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new window.Image();
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 400; // Small thumbnail size
+        const MAX_SIZE = 400;
         let width = img.width;
         let height = img.height;
         if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
@@ -66,8 +67,26 @@ export const Products = () => {
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, width, height);
-        
-        updateForm('image', canvas.toDataURL('image/jpeg', 0.8)); // 80% quality JPG
+
+        const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        if (isFirebaseStorageConfigured) {
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              updateForm('image', fallbackDataUrl);
+              return;
+            }
+            try {
+              const url = await uploadProductImage(blob);
+              updateForm('image', url || fallbackDataUrl);
+            } catch {
+              updateForm('image', fallbackDataUrl);
+            }
+          }, 'image/jpeg', 0.8);
+          return;
+        }
+
+        updateForm('image', fallbackDataUrl);
       };
       img.src = event.target.result;
     };

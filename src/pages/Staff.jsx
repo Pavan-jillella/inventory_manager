@@ -18,9 +18,9 @@ export const Staff = () => {
     user.username?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) return;
-    const success = addStaff(newName.trim(), newUsername.trim(), newPassword.trim(), newRole);
+    const success = await addStaff(newName.trim(), newUsername.trim(), newPassword.trim(), newRole);
     if (success) {
       setNewName('');
       setNewUsername('');

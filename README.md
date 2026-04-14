@@ -1,16 +1,46 @@
-# React + Vite
+# Inventory Manager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Inventory and issue-tracking app for hotel front desk and admin operations.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React + Vite
+- Firebase Firestore (data)
+- Firebase Storage (product images)
+- LocalStorage fallback (offline/dev without Firebase)
 
-## React Compiler
+## Firebase Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Create a Firebase project.
+2. Enable Firestore Database.
+3. Enable Storage.
+4. Add a Web App in Firebase and copy config values.
+5. Create a `.env.local` file and add:
 
-## Expanding the ESLint configuration
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+When Firebase is configured, app data syncs to Firestore and product uploads go to Storage.
+If Firebase is not configured, the app continues to run on LocalStorage.
+
+## Firestore Collections
+
+- `items` (document id = item id)
+- `users` (document id = user id)
+- `logs` (document id = log id)
+- `settings/app` (single document)
+
+## Commands
+
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
+```

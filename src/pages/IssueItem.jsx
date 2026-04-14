@@ -63,9 +63,9 @@ export const IssueItem = () => {
 
   const cartQty = cart.reduce((s, c) => s + c.quantity, 0);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (cart.length === 0) return;
-    const success = logCartUsage(cart, roomNumber, notes, rateType, paymentMethod);
+    const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod);
     if (success) {
       setCart([]);
       setRoomNumber('');
@@ -80,7 +80,7 @@ export const IssueItem = () => {
     const handleKeyDown = (e) => {
       if (e.key === 'Enter' && cart.length > 0 && !e.repeat && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
-        handleSubmit();
+        void handleSubmit();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -353,7 +353,7 @@ export const IssueItem = () => {
               </div>
 
               {/* Submit */}
-              <button className="btn btn-primary" onClick={handleSubmit} style={{ width: '100%', padding: '0.7rem', fontSize: '0.85rem' }}>
+              <button className="btn btn-primary" onClick={() => void handleSubmit()} style={{ width: '100%', padding: '0.7rem', fontSize: '0.85rem' }}>
                 <Check size={16} /> Issue {cart.length} Item{cart.length > 1 ? 's' : ''}
                 <span style={{ marginLeft: 'auto', fontSize: '0.65rem', opacity: 0.7, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                   <Zap size={10} /> Enter
