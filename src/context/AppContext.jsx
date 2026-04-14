@@ -115,8 +115,8 @@ export const AppProvider = ({ children }) => {
             const tB = b.timestamp || '';
             return tB.localeCompare(tA);
           }));
-        } else if (logs.length > 0) {
-          await upsertManyDocs('logs', logs);
+        } else {
+          setLogs([]);
         }
 
         if (dbSettings) {
