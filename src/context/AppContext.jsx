@@ -6,12 +6,21 @@ import {
   upsertManyDocs,
   upsertDocById,
   deleteDocById,
+  deleteManyDocsByIds,
   readSettings,
   writeSettings,
 } from '../lib/firebase';
 
 const AppContext = createContext();
 const normalizeUsername = (value) => String(value || '').toLowerCase().trim();
+const defaultEmailSettings = {
+  enabled: false,
+  recipients: '',
+  scheduleTime: '07:00',
+  timeZone: 'America/New_York',
+  includeAllShifts: true,
+  lastSentAt: null,
+};
 
 export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(() => {
@@ -55,14 +64,28 @@ export const AppProvider = ({ children }) => {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_settings');
-      if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
+      if (saved && saved !== 'undefined' && saved !== 'null') {
+        const parsed = JSON.parse(saved);
+        return {
+          hotelName: parsed.hotelName || 'Country Inn & Suites',
+          hotelAddress: parsed.hotelAddress || '123 Luxury Ave, Suite 100',
+          categories: Array.isArray(parsed.categories) ? parsed.categories : CATEGORIES,
+          notifications: {
+            lowStock: parsed.notifications?.lowStock ?? true,
+            outOfStock: parsed.notifications?.outOfStock ?? true,
+            shiftReport: parsed.notifications?.shiftReport ?? false,
+          },
+          emailReports: { ...defaultEmailSettings, ...(parsed.emailReports || {}) },
+        };
+      }
     } catch(e) {}
-    return {
-      hotelName: 'Country Inn & Suites',
-      hotelAddress: '123 Luxury Ave, Suite 100',
-      categories: CATEGORIES,
-      notifications: { lowStock: true, outOfStock: true, shiftReport: false },
-    };
+      return {
+        hotelName: 'Country Inn & Suites',
+        hotelAddress: '123 Luxury Ave, Suite 100',
+        categories: CATEGORIES,
+        notifications: { lowStock: true, outOfStock: true, shiftReport: false },
+        emailReports: defaultEmailSettings,
+      };
   });
   const [toast, setToast] = useState(null);
 
@@ -100,8 +123,9 @@ export const AppProvider = ({ children }) => {
           setSettings({
             hotelName: dbSettings.hotelName || 'Country Inn & Suites',
             hotelAddress: dbSettings.hotelAddress || '123 Luxury Ave, Suite 100',
-            categories: dbSettings.categories || CATEGORIES,
-            notifications: dbSettings.notifications || { lowStock: true, outOfStock: true, shiftReport: false }
+            categories: Array.isArray(dbSettings.categories) ? dbSettings.categories : CATEGORIES,
+            notifications: dbSettings.notifications || { lowStock: true, outOfStock: true, shiftReport: false },
+            emailReports: { ...defaultEmailSettings, ...(dbSettings.emailReports || {}) },
           });
         } else {
           await writeSettings(settings);
@@ -316,6 +340,22 @@ export const AppProvider = ({ children }) => {
     showToast('Entry deleted, stock restored');
   };
 
+  const clearRevenueData = async () => {
+    const allLogIds = logs.map((log) => log.id);
+    if (isFirebaseConfigured && allLogIds.length > 0) {
+      try {
+        await deleteManyDocsByIds('logs', allLogIds);
+      } catch (e) {
+        console.error('Failed to clear logs in Firebase:', e);
+        showToast('Could not clear old revenue data in cloud', 'error');
+        return false;
+      }
+    }
+    setLogs([]);
+    showToast('Old revenue data deleted');
+    return true;
+  };
+
   const getShiftStats = (shiftId) => {
     const today = new Date().toDateString();
     const shiftLogs = logs.filter(l => new Date(l.timestamp).toDateString() === today && l.shift === shiftId);
@@ -333,6 +373,7 @@ export const AppProvider = ({ children }) => {
       logCartUsage, addStaff, removeStaff,
       addItem, updateItem, deleteItem,
       updateLog, deleteLog,
+      clearRevenueData,
       toast, showToast, getShiftStats,
     }}>
       {children}

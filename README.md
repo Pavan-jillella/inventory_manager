@@ -36,6 +36,36 @@ If Firebase is not configured, the app continues to run on LocalStorage.
 - `logs` (document id = log id)
 - `settings/app` (single document)
 
+### Automated Daily Email Reports (7:00 AM)
+
+The admin Settings page now supports:
+- Enabling/disabling daily reports
+- Recipients list (comma-separated)
+- Schedule time and timezone metadata
+
+For actual automatic email delivery, deploy Firebase Functions:
+
+1. Install Firebase CLI and login.
+2. Configure SMTP secrets for Functions:
+
+```bash
+firebase functions:secrets:set REPORT_EMAIL_SMTP_HOST
+firebase functions:secrets:set REPORT_EMAIL_SMTP_PORT
+firebase functions:secrets:set REPORT_EMAIL_SMTP_USER
+firebase functions:secrets:set REPORT_EMAIL_SMTP_PASS
+firebase functions:secrets:set REPORT_EMAIL_FROM
+```
+
+3. Install function deps and deploy:
+
+```bash
+cd functions
+npm install
+npm run deploy
+```
+
+The scheduled function sends a combined CSV report for Morning, Afternoon, and Night shifts at 7:00 AM daily.
+
 ## Commands
 
 ```bash

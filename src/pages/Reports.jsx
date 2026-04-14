@@ -7,7 +7,7 @@ import { useAppContext } from '../context/AppContext';
 const COLORS = ['#b89771', '#8f7354', '#059669', '#d97706', '#dc2626'];
 
 export const Reports = () => {
-  const { logs, items } = useAppContext();
+  const { logs, items, settings } = useAppContext();
   const [period, setPeriod] = useState('7');
 
   const periodLogs = useMemo(() => {
@@ -19,6 +19,8 @@ export const Reports = () => {
     });
   }, [logs, period]);
 
+  const activeCategories = useMemo(() => new Set((settings.categories || []).map((c) => c.trim().toLowerCase())), [settings.categories]);
+
   const topItems = useMemo(() => {
     const counts = {};
     periodLogs.forEach(l => { counts[l.itemName] = (counts[l.itemName] || 0) + l.quantity; });
@@ -27,9 +29,14 @@ export const Reports = () => {
 
   const categoryUsage = useMemo(() => {
     const cats = {};
-    periodLogs.forEach(l => { cats[l.itemCategory || 'Other'] = (cats[l.itemCategory || 'Other'] || 0) + l.quantity; });
+    periodLogs.forEach((l) => {
+      const rawCategory = (l.itemCategory || '').trim();
+      const normalized = rawCategory.toLowerCase();
+      const label = rawCategory && activeCategories.has(normalized) ? rawCategory : 'Other';
+      cats[label] = (cats[label] || 0) + l.quantity;
+    });
     return Object.entries(cats).map(([name, value]) => ({ name, value }));
-  }, [periodLogs]);
+  }, [periodLogs, activeCategories]);
 
   const staffUsage = useMemo(() => {
     const staff = {};

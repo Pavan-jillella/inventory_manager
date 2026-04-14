@@ -59,6 +59,18 @@ export const deleteDocById = async (name, id) => {
   await deleteDoc(doc(db, name, String(id)));
 };
 
+export const deleteManyDocsByIds = async (name, ids = []) => {
+  if (!db || !Array.isArray(ids) || ids.length === 0) return;
+  for (let i = 0; i < ids.length; i += 500) {
+    const batch = writeBatch(db);
+    ids.slice(i, i + 500).forEach((id) => {
+      if (id === undefined || id === null) return;
+      batch.delete(doc(db, name, String(id)));
+    });
+    await batch.commit();
+  }
+};
+
 export const readSettings = async () => {
   if (!db) return null;
   const snapshot = await getDoc(doc(db, 'settings', 'app'));
@@ -76,6 +88,9 @@ export const uploadProductImage = async (fileOrBlob) => {
   const ext = fileOrBlob.type?.includes('png') ? 'png' : 'jpg';
   const fileName = `${Date.now()}_${Math.floor(Math.random() * 100000)}.${ext}`;
   const fileRef = ref(storage, `products/${fileName}`);
-  await uploadBytes(fileRef, fileOrBlob, { contentType: fileOrBlob.type || 'image/jpeg' });
+  await uploadBytes(fileRef, fileOrBlob, {
+    contentType: fileOrBlob.type || 'image/jpeg',
+    cacheControl: 'public,max-age=31536000,immutable',
+  });
   return getDownloadURL(fileRef);
 };

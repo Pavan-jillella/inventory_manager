@@ -1,12 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Bell, Tag, Plus, X } from 'lucide-react';
+import { Building2, Bell, Tag, Plus, X, Mail, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useState } from 'react';
 
 export const SettingsPage = () => {
-  const { settings, setSettings, showToast } = useAppContext();
+  const { settings, setSettings, showToast, clearRevenueData } = useAppContext();
   const [newCat, setNewCat] = useState('');
+  const [isDeletingRevenue, setIsDeletingRevenue] = useState(false);
 
   const updateSetting = (path, value) => {
     setSettings(prev => {
@@ -28,6 +29,16 @@ export const SettingsPage = () => {
 
   const removeCategory = (cat) => {
     updateSetting('categories', settings.categories.filter(c => c !== cat));
+  };
+
+  const clearAllRevenue = async () => {
+    if (!window.confirm('Delete all old revenue/activity data? This removes all logs permanently.')) return;
+    setIsDeletingRevenue(true);
+    try {
+      await clearRevenueData();
+    } finally {
+      setIsDeletingRevenue(false);
+    }
   };
 
   return (
@@ -102,6 +113,78 @@ export const SettingsPage = () => {
             </label>
           </div>
         ))}
+      </motion.div>
+
+      {/* Daily Email Reports */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <Mail size={18} style={{ color: 'var(--accent-color)' }} />
+          <h3 style={{ margin: 0 }}>Automated Daily Reports</h3>
+        </div>
+        <div className="input-group">
+          <label>Enable Daily 7:00 AM Report</label>
+          <label style={{ position: 'relative', width: '44px', height: '24px', cursor: 'pointer', display: 'inline-block' }}>
+            <input
+              type="checkbox"
+              checked={Boolean(settings.emailReports?.enabled)}
+              onChange={() => updateSetting('emailReports.enabled', !settings.emailReports?.enabled)}
+              style={{ opacity: 0, width: 0, height: 0 }}
+            />
+            <span style={{ position: 'absolute', inset: 0, borderRadius: '999px', transition: 'all 0.2s ease', background: settings.emailReports?.enabled ? 'var(--accent-gradient)' : '#e5e7eb' }}>
+              <span style={{ position: 'absolute', top: '2px', left: settings.emailReports?.enabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+            </span>
+          </label>
+          <p className="text-secondary" style={{ fontSize: '0.78rem', marginTop: '0.4rem' }}>
+            Sends one combined sheet-like report for Morning, Afternoon, and Night shifts at 7:00 AM.
+          </p>
+        </div>
+
+        <div className="input-group" style={{ marginBottom: '0.75rem' }}>
+          <label>Recipient Emails (comma separated)</label>
+          <input
+            type="text"
+            className="input"
+            value={settings.emailReports?.recipients || ''}
+            onChange={(e) => updateSetting('emailReports.recipients', e.target.value)}
+            placeholder="manager@hotel.com, owner@hotel.com"
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="input-group" style={{ marginBottom: 0 }}>
+            <label>Time</label>
+            <input
+              type="time"
+              className="input"
+              value={settings.emailReports?.scheduleTime || '07:00'}
+              onChange={(e) => updateSetting('emailReports.scheduleTime', e.target.value)}
+            />
+          </div>
+          <div className="input-group" style={{ marginBottom: 0 }}>
+            <label>Time Zone</label>
+            <input
+              type="text"
+              className="input"
+              value={settings.emailReports?.timeZone || 'America/New_York'}
+              onChange={(e) => updateSetting('emailReports.timeZone', e.target.value)}
+              placeholder="America/New_York"
+            />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Data Cleanup */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: 'white', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <Trash2 size={18} style={{ color: 'var(--danger-color)' }} />
+          <h3 style={{ margin: 0, color: 'var(--danger-color)' }}>Data Cleanup</h3>
+        </div>
+        <p className="text-secondary" style={{ fontSize: '0.82rem', marginBottom: '1rem' }}>
+          Deletes all historical revenue/activity logs from both local storage and Firebase.
+        </p>
+        <button className="btn btn-outline" onClick={() => void clearAllRevenue()} disabled={isDeletingRevenue} style={{ borderColor: '#fecaca', color: 'var(--danger-color)' }}>
+          <Trash2 size={14} /> {isDeletingRevenue ? 'Deleting...' : 'Delete All Old Revenue Data'}
+        </button>
       </motion.div>
     </div>
   );

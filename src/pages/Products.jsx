@@ -61,7 +61,14 @@ export const Products = () => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setIsUploadingImage(true);
+    const FAST_UPLOAD_THRESHOLD_BYTES = 450 * 1024;
     try {
+      if (isFirebaseStorageConfigured && file.size <= FAST_UPLOAD_THRESHOLD_BYTES) {
+        const directUrl = await uploadProductImage(file);
+        updateForm('image', directUrl || '');
+        return;
+      }
+
       const imageUrl = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onerror = () => resolve('');
@@ -70,7 +77,7 @@ export const Products = () => {
           img.onerror = () => resolve('');
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_SIZE = 400;
+            const MAX_SIZE = 300;
             let width = img.width;
             let height = img.height;
             if (width > height && width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
@@ -82,7 +89,7 @@ export const Products = () => {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, width, height);
 
-            const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            const fallbackDataUrl = canvas.toDataURL('image/jpeg', 0.72);
             if (!isFirebaseStorageConfigured) {
               resolve(fallbackDataUrl);
               return;
@@ -99,7 +106,7 @@ export const Products = () => {
               } catch {
                 resolve(fallbackDataUrl);
               }
-            }, 'image/jpeg', 0.8);
+            }, 'image/jpeg', 0.72);
           };
           img.src = event.target?.result;
         };
