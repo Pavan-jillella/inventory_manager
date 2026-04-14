@@ -341,19 +341,39 @@ export const AppProvider = ({ children }) => {
   };
 
   const clearRevenueData = async () => {
-    const allLogIds = logs.map((log) => log.id);
-    if (isFirebaseConfigured && allLogIds.length > 0) {
+    setLogs([]);
+    if (isFirebaseConfigured) {
+      const logIds = logs.map(l => l.id);
+      await deleteManyDocsByIds('logs', logIds);
+    }
+    showToast('Revenue logs cleared');
+  };
+
+  const factoryReset = async () => {
+    setItems([]);
+    setLogs([]);
+    setUsers(DEFAULT_USERS);
+    
+    if (isFirebaseConfigured) {
       try {
-        await deleteManyDocsByIds('logs', allLogIds);
+        const [dbItems, dbLogs, dbUsers] = await Promise.all([
+          readCollection('items'),
+          readCollection('logs'),
+          readCollection('users'),
+        ]);
+        
+        await Promise.all([
+          deleteManyDocsByIds('items', dbItems.map(i => i.id)),
+          deleteManyDocsByIds('logs', dbLogs.map(l => l.id)),
+          deleteManyDocsByIds('users', dbUsers.filter(u => u.username !== 'admin' && u.username !== 'desk').map(u => u.id))
+        ]);
       } catch (e) {
-        console.error('Failed to clear logs in Firebase:', e);
-        showToast('Could not clear old revenue data in cloud', 'error');
-        return false;
+        console.error('Cloud reset failed:', e);
       }
     }
-    setLogs([]);
-    showToast('Old revenue data deleted');
-    return true;
+    
+    localStorage.clear();
+    showToast('Platform reset to original state', 'success');
   };
 
   const getShiftStats = (shiftId) => {
@@ -368,13 +388,12 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      currentUser, login, logout,
-      items, setItems, logs, users, settings, setSettings,
-      logCartUsage, addStaff, removeStaff,
-      addItem, updateItem, deleteItem,
-      updateLog, deleteLog,
-      clearRevenueData,
-      toast, showToast, getShiftStats,
+      currentUser, items, logs, users, settings, toast,
+      login, logout, showToast, 
+      addStaff, removeStaff, 
+      addItem, updateItem, deleteItem, 
+      logCartUsage, clearRevenueData, factoryReset,
+      setSettings, updateLog, deleteLog, getShiftStats
     }}>
       {children}
     </AppContext.Provider>

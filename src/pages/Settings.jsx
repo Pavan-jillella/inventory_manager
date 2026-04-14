@@ -5,9 +5,10 @@ import { useAppContext } from '../context/AppContext';
 import { useState } from 'react';
 
 export const SettingsPage = () => {
-  const { settings, setSettings, showToast, clearRevenueData } = useAppContext();
+  const { settings, setSettings, showToast, clearRevenueData, factoryReset } = useAppContext();
   const [newCat, setNewCat] = useState('');
   const [isDeletingRevenue, setIsDeletingRevenue] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const updateSetting = (path, value) => {
     setSettings(prev => {
@@ -179,12 +180,31 @@ export const SettingsPage = () => {
           <Trash2 size={18} style={{ color: 'var(--danger-color)' }} />
           <h3 style={{ margin: 0, color: 'var(--danger-color)' }}>Data Cleanup</h3>
         </div>
-        <p className="text-secondary" style={{ fontSize: '0.82rem', marginBottom: '1rem' }}>
-          Deletes all historical revenue/activity logs from both local storage and Firebase.
+        <p className="text-secondary" style={{ fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+          Careful: These actions are permanent. Use "Factory Reset" to wipe everything clean for your client.
         </p>
-        <button className="btn btn-outline" onClick={() => void clearAllRevenue()} disabled={isDeletingRevenue} style={{ borderColor: '#fecaca', color: 'var(--danger-color)' }}>
-          <Trash2 size={14} /> {isDeletingRevenue ? 'Deleting...' : 'Delete All Old Revenue Data'}
-        </button>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <button className="btn btn-outline" onClick={() => void clearAllRevenue()} disabled={isDeletingRevenue} style={{ borderColor: '#fecaca', color: 'var(--danger-color)', alignSelf: 'flex-start' }}>
+            <Trash2 size={14} /> {isDeletingRevenue ? 'Deleting...' : 'Delete All Old Revenue Data'}
+          </button>
+          
+          <button 
+            className="btn btn-danger" 
+            onClick={async () => {
+              if (window.confirm('FACTORY RESET: This will delete ALL products, ALL staff, and ALL logs from both your browser and the cloud database. The client will receive a 100% empty website. Continue?')) {
+                setIsResetting(true);
+                await factoryReset();
+                setIsResetting(false);
+                window.location.reload();
+              }
+            }} 
+            disabled={isResetting}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            <Trash2 size={14} /> {isResetting ? 'Resetting Everything...' : 'Factory Reset (Wipe Entire Website Clean)'}
+          </button>
+        </div>
       </motion.div>
     </div>
   );
