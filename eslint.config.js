@@ -27,7 +27,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['functions/**/*.js'],
+    files: ['functions/**/*.js', 'functions-staff/**/*.js'],
     languageOptions: { globals: globals.node, sourceType: 'commonjs' },
   },
   {

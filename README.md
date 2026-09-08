@@ -47,11 +47,18 @@ Do not deploy this branch over the existing site until the authentication migrat
 1. Authenticate the Firebase CLI to the existing hotel project and back up its data.
 2. Enable the email/password provider in Firebase Authentication and add the production domain to its authorized domains.
 3. Provision existing staff in Firebase Authentication. Create a matching `users/{authUid}` profile containing `id`, `name`, `username` (email), and `role` (`Admin` or `Front Desk`). Never include passwords in these profiles. Confirm an administrator can sign in before switching production.
-4. Deploy `firestore.rules`, `storage.rules`, and the `manageStaff` callable function. The staff page requires that function, and cloud resets must not remove the last administrator.
+4. Deploy `firestore.rules`, `storage.rules`, and the `manageStaff` callable function. Staff management has its own Node.js 22 codebase so it can deploy without configuring optional SMTP reports:
+
+   ```sh
+   npm ci --prefix functions-staff
+   firebase deploy --config firebase.staff.json --project country-inn-suites --only firestore:rules,storage,functions:staff
+   ```
+
+   The staff page requires that function, and cloud resets must not remove the last administrator. The separate `functions` codebase contains optional email reports and still requires its SMTP secrets.
 5. Verify signed-out access is denied, both staff roles can perform their permitted workflows, and two devices see the same saved inventory and daily records.
 6. Run `npm ci`, `npm run lint`, `npm test`, and `npm run build`. Deploy to a Vercel preview using the existing project settings, verify sign-in and cloud saves there, and only then promote to production.
 
-The local build, lint, and 14 automated tests pass. Browser checks covered all four operations pages, stock overuse rejection, persistence, expense correction, CSV preview/edit/import, mobile navigation, and image upload. Authenticated production backend and security-rule checks remain a release gate until Firebase access is restored.
+The local build, lint, and 20 automated tests pass. Browser checks covered all four operations pages, stock overuse rejection, persistence, expense correction, CSV preview/edit/import, mobile navigation, image upload, and recoverable trip deletion. Authenticated cloud checks with two separate sessions are required before promoting a new release. Local demonstration records do not automatically migrate to Firestore.
 
 ## Firestore Collections
 

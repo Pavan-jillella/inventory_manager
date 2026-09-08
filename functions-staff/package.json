@@ -1,0 +1,11 @@
+{
+  "name": "inventory-staff-functions",
+  "private": true,
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": { "node": "22" },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1"
+  }
+}

@@ -1,7 +1,12 @@
 {
   "functions": [
     {
-      "source": "functions"
+      "source": "functions",
+      "codebase": "default"
+    },
+    {
+      "source": "functions-staff",
+      "codebase": "staff"
     }
   ],
   "firestore": {
