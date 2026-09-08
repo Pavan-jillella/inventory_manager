@@ -1,4 +1,3 @@
-/* eslint-env node */
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const { onSchedule } = require('firebase-functions/v2/scheduler');

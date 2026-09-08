@@ -26,4 +26,16 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ['functions/**/*.js'],
+    languageOptions: { globals: globals.node, sourceType: 'commonjs' },
+  },
+  {
+    files: ['tests/**/*.js', 'scratch/**/*.js', 'clear-inventory.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['src/context/AppContext.jsx'],
+    rules: { 'react-refresh/only-export-components': ['error', { allowExportNames: ['useAppContext'] }] },
+  },
 ])

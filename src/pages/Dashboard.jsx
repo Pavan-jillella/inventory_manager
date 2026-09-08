@@ -1,16 +1,16 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Package, AlertTriangle, TrendingUp, DollarSign, Clock } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAppContext } from '../context/AppContext';
-import { SHIFTS, getCurrentShift } from '../data/mockData';
+import { SHIFTS } from '../data/mockData';
 
 const COLORS = ['#b89771', '#8f7354', '#059669', '#d97706', '#dc2626'];
 
 export const Dashboard = () => {
   const { items, logs, getShiftStats, getLogsForYear } = useAppContext();
   const currentYear = new Date().getFullYear();
-  const ytdLogs = useMemo(() => getLogsForYear(currentYear), [logs, getLogsForYear, currentYear]);
+  const ytdLogs = getLogsForYear(currentYear);
 
   const totalStock = items.reduce((s, i) => s + i.stock, 0);
   const lowStockItems = items.filter(i => i.stock <= i.minStock);
@@ -21,13 +21,6 @@ export const Dashboard = () => {
   const ytdRevenue = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0), 0);
   const ytdCost = ytdLogs.reduce((s, l) => s + (l.purchaseCost || 0), 0);
   const ytdProfit = ytdRevenue - ytdCost;
-
-  const mostIssued = useMemo(() => {
-    const counts = {};
-    todayLogs.forEach(l => { counts[l.itemName] = (counts[l.itemName] || 0) + l.quantity; });
-    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-    return top ? top[0] : 'None';
-  }, [todayLogs]);
 
   // Shift stats with amounts
   const shiftData = SHIFTS.map(s => {
@@ -80,18 +73,18 @@ export const Dashboard = () => {
           { label: 'Total Issues', value: totalIssues, icon: <TrendingUp size={18} style={{ color: 'var(--success-color)' }} />, color: 'var(--text-primary)' },
           { label: "Today's Sales", value: `$${todayRevenue.toFixed(2)}`, icon: <DollarSign size={18} style={{ color: 'var(--accent-color)' }} />, color: 'var(--accent-dark)' },
         ].map((stat, i) => (
-          <motion.div key={i} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
+          <Motion.div key={i} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{stat.label}</span>
               {stat.icon}
             </div>
             <div style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)', fontWeight: 500, color: stat.color }}>{stat.value}</div>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
 
       {/* YTD Snapshot Banner */}
-      <motion.div 
+      <Motion.div 
         initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
         style={{ 
           marginBottom: '1.5rem', padding: '1.25rem 1.75rem', borderRadius: 'var(--radius-lg)',
@@ -114,12 +107,12 @@ export const Dashboard = () => {
             <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{ytdLogs.reduce((s,l) => s + l.quantity, 0)}</div>
           </div>
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Shift Performance */}
       <div className="grid grid-cols-3 gap-6" style={{ marginBottom: '1.5rem' }}>
         {shiftData.map((s, i) => (
-          <motion.div key={s.id} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.08 }}>
+          <Motion.div key={s.id} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.08 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <Clock size={14} style={{ color: 'var(--accent-color)' }} />
               <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{s.label} Shift</span>
@@ -139,7 +132,7 @@ export const Dashboard = () => {
                 <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Amount</div>
               </div>
             </div>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
 

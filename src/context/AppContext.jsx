@@ -3,9 +3,11 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebas
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { parseInventory } from '../lib/operations';
+import { planIssue, planLogChange } from '../lib/inventory';
 import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift, CATEGORIES } from '../data/mockData';
 import {
   isFirebaseConfigured, manageCloudStaff,
+  issueCloudItems, changeCloudLog,
   readCollection,
   upsertManyDocs,
   upsertDocById,
@@ -33,21 +35,21 @@ export const AppProvider = ({ children }) => {
     try {
       const saved = localStorage.getItem('cis_currentUser');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
-    } catch(e) {}
+    } catch { /* Use defaults when cached data is invalid. */ }
     return null;
   });
   const [items, setItems] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_items');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
-    } catch(e) {}
+    } catch { /* Use defaults when cached data is invalid. */ }
     return MOCK_ITEMS;
   });
   const [logs, setLogs] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_logs');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
-    } catch(e) {}
+    } catch { /* Use defaults when cached data is invalid. */ }
     return [];
   });
   const [users, setUsers] = useState(() => {
@@ -65,7 +67,7 @@ export const AppProvider = ({ children }) => {
         });
         return parsed.map((u) => ({ ...u, username: normalizeUsername(u.username) }));
       }
-    } catch(e) {}
+    } catch { /* Use defaults when cached data is invalid. */ }
     return DEFAULT_USERS.map((u) => ({ ...u, username: normalizeUsername(u.username) }));
   });
   const [settings, setSettingsState] = useState(() => {
@@ -85,7 +87,7 @@ export const AppProvider = ({ children }) => {
           emailReports: { ...defaultEmailSettings, ...(parsed.emailReports || {}) },
         };
       }
-    } catch(e) {}
+    } catch { /* Use defaults when cached data is invalid. */ }
       return {
         hotelName: 'Country Inn & Suites',
         hotelAddress: '123 Luxury Ave, Suite 100',
@@ -267,124 +269,40 @@ export const AppProvider = ({ children }) => {
 
   // ── Log Cart ──
   const logCartUsage = async (cartItems, roomNumber, notes, rateType = 'guest', paymentMethod = 'cash', membershipTier = 'None') => {
-    for (const ci of cartItems) {
-      const currentItem = items.find(i => i.id === ci.item.id);
-      if (!currentItem || currentItem.stock < ci.quantity) {
-        showToast(`Insufficient stock for ${ci.item.name}!`, 'error'); return false;
-      }
+    try {
+      const shift = getCurrentShift();
+      const cart = cartItems.map(entry => ({ ...entry, logId: crypto.randomUUID() }));
+      const details = { batchId: crypto.randomUUID(), rateType, paymentMethod, roomNumber: roomNumber || '', notes: notes || '', membershipTier, staffId: currentUser.id, staffName: currentUser.name, shift: shift.id, shiftLabel: shift.label, timestamp: new Date().toISOString() };
+      const plan = isFirebaseConfigured ? await issueCloudItems(cart, details) : planIssue(items, cart, details);
+      setItems(previous => previous.map(item => plan.updatedItems.find(updated => updated.id === item.id) || item));
+      setLogs(previous => [...plan.newLogs, ...previous]);
+      showToast(`${cart.length} item(s) issued${roomNumber ? ` → Room ${roomNumber}` : ''}`);
+      return true;
+    } catch (error) {
+      showToast(error.message || 'Transaction could not be saved. Your cart is unchanged.', 'error');
+      return false;
     }
-    
-    // Decrease stock locally
-    setItems(prev => prev.map(i => {
-      const ce = cartItems.find(ci => ci.item.id === i.id);
-      return ce ? { ...i, stock: i.stock - ce.quantity } : i;
-    }));
-
-    if (isFirebaseConfigured) {
-      for (const ci of cartItems) {
-        const currentItem = items.find(i => i.id === ci.item.id);
-        if (!currentItem) continue;
-        try {
-          await upsertDocById('items', ci.item.id, { ...currentItem, stock: currentItem.stock - ci.quantity });
-        } catch (e) {
-          console.error('Firebase item sync failed:', e);
-        }
-      }
-    }
-
-    const shift = getCurrentShift();
-    const batchId = Date.now();
-    
-    const newLogs = cartItems.map((ci, idx) => {
-      const rate = ci.isFree ? 0 : (rateType === 'staff' ? (ci.item.staffRate || 0) : (ci.item.guestRate || 0));
-      return {
-        id: batchId + idx, 
-        batchId, 
-        itemId: ci.item.id, 
-        itemName: ci.item.name, 
-        itemCategory: ci.item.category,
-        quantity: ci.quantity, 
-        rateType: ci.isFree ? 'Amenity' : rateType, 
-        unitRate: rate, 
-        totalAmount: rate * ci.quantity,
-        purchaseRate: ci.item.purchaseRate || 0, 
-        purchaseCost: (ci.item.purchaseRate || 0) * ci.quantity,
-        paymentMethod: ci.isFree ? 'Amenity' : paymentMethod, 
-        roomNumber: roomNumber || '', 
-        notes: notes || '',
-        membershipTier: membershipTier || 'None',
-        isFreeAmenity: Boolean(ci.isFree),
-        staffId: currentUser?.id, 
-        staffName: currentUser?.name,
-        shift: shift.id, 
-        shiftLabel: shift.label, 
-        timestamp: new Date().toISOString(),
-      };
-    });
-
-    setLogs(prev => [...newLogs.reverse(), ...prev]);
-    if (isFirebaseConfigured) {
-      try {
-        await upsertManyDocs('logs', newLogs);
-      } catch (e) {
-        console.error('Firebase log sync failed:', e);
-      }
-    }
-
-    const totalQty = cartItems.reduce((s, ci) => s + ci.quantity, 0);
-    showToast(`${cartItems.length} item(s), ${totalQty} qty issued${roomNumber ? ` → Room ${roomNumber}` : ''}`);
-    return true;
   };
 
   // ── Log CRUD ──
   const updateLog = async (logId, updates) => {
-    let stockDiff = 0;
-    let itemId = null;
-    let updatedLog = null;
-
-    setLogs(prev => prev.map(l => {
-      if (l.id === logId) {
-        updatedLog = { ...l, ...updates };
-        if (updates.quantity !== undefined) {
-          updatedLog.totalAmount = updatedLog.unitRate * updates.quantity;
-          updatedLog.purchaseCost = (updatedLog.purchaseRate || 0) * updates.quantity;
-          stockDiff = l.quantity - updates.quantity;
-          itemId = l.itemId;
-          if (stockDiff !== 0) {
-            setItems(prevItems => prevItems.map(i =>
-              i.id === l.itemId ? { ...i, stock: i.stock + stockDiff } : i
-            ));
-          }
-        }
-        return updatedLog;
-      }
-      return l;
-    }));
-
-    if (isFirebaseConfigured && updatedLog) {
-      await upsertDocById('logs', logId, updatedLog);
-      if (stockDiff !== 0 && itemId) {
-        const currentItem = items.find(i => i.id === itemId);
-        if (currentItem) await upsertDocById('items', itemId, { ...currentItem, stock: currentItem.stock + stockDiff });
-      }
-    }
-    showToast('Entry updated');
+    try {
+      const log = logs.find(entry => entry.id === logId);
+      const plan = isFirebaseConfigured ? await changeCloudLog(logId, updates) : planLogChange(log, items.find(item => item.id === log?.itemId), updates);
+      setLogs(previous => previous.map(entry => entry.id === logId ? plan.updatedLog : entry));
+      if (plan.updatedItem) setItems(previous => previous.map(item => item.id === plan.updatedItem.id ? plan.updatedItem : item));
+      showToast('Entry updated'); return true;
+    } catch (error) { showToast(error.message || 'Unable to update entry.', 'error'); return false; }
   };
 
   const deleteLog = async (logId) => {
-    const log = logs.find(l => l.id === logId);
-    if (log) {
-      setItems(prev => prev.map(i =>
-        i.id === log.itemId ? { ...i, stock: i.stock + log.quantity } : i
-      ));
-      if (isFirebaseConfigured) {
-        const currentItem = items.find(i => i.id === log.itemId);
-        if (currentItem) await upsertDocById('items', log.itemId, { ...currentItem, stock: currentItem.stock + log.quantity });
-      }
-    }
-    setLogs(prev => prev.filter(l => l.id !== logId));
-    if (isFirebaseConfigured) await deleteDocById('logs', logId);
-    showToast('Entry deleted, stock restored');
+    try {
+      const log = logs.find(entry => entry.id === logId);
+      const plan = isFirebaseConfigured ? await changeCloudLog(logId, null) : planLogChange(log, items.find(item => item.id === log?.itemId), null);
+      setLogs(previous => previous.filter(entry => entry.id !== logId));
+      if (plan.updatedItem) setItems(previous => previous.map(item => item.id === plan.updatedItem.id ? plan.updatedItem : item));
+      showToast('Entry deleted, stock restored'); return true;
+    } catch (error) { showToast(error.message || 'Unable to delete entry.', 'error'); return false; }
   };
 
   const clearRevenueData = async () => {

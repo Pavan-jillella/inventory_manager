@@ -3,7 +3,7 @@ import { InventoryImport } from '../components/InventoryImport';
 import { parseInventory } from '../lib/operations';
 import './Operations.css';
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
@@ -101,12 +101,12 @@ export const Products = () => {
       <InventoryImport />
       <AnimatePresence>
         {showModal && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
             onClick={e => e.target === e.currentTarget && setShowModal(false)}
           >
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
               style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '2rem', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}
             >
@@ -207,8 +207,8 @@ export const Products = () => {
                   {isUploadingImage ? 'Uploading Image...' : editingItem ? 'Save Changes' : 'Add Product'}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
@@ -239,7 +239,7 @@ export const Products = () => {
                 filteredItems.map(item => {
                   const status = getStockStatus(item);
                   return (
-                    <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <Motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                           {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', borderRadius: '0.4rem', objectFit: 'contain', background: '#fff', border: '1px solid var(--border-color)' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '0.4rem', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} style={{ color: 'var(--accent-light)' }} /></div>}
@@ -258,7 +258,7 @@ export const Products = () => {
                           <button className="btn btn-ghost btn-sm" style={{ padding: '0.4rem', color: 'var(--danger-color)' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
                         </div>
                       </td>
-                    </motion.tr>
+                    </Motion.tr>
                   );
                 })
               )}
@@ -272,7 +272,7 @@ export const Products = () => {
           {filteredItems.map(item => {
             const status = getStockStatus(item);
             return (
-              <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1.25rem', boxShadow: 'var(--shadow-soft)', display: 'flex', flexDirection: 'column' }}>
+              <Motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1.25rem', boxShadow: 'var(--shadow-soft)', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   {item.image ? <img src={item.image} alt={item.name} style={{ width: '48px', height: '48px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff' }} /> : <div style={{ width: '48px', height: '48px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} style={{ color: '#9ca3af' }} /></div>}
                   <span className={`badge ${status.cls}`}>{status.label}</span>
@@ -287,7 +287,7 @@ export const Products = () => {
                   <button className="btn btn-outline" style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem' }} onClick={() => openEdit(item)}>Edit</button>
                   <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger-color)', borderColor: '#fecaca' }} onClick={() => handleDelete(item.id)}><Trash2 size={14} /></button>
                 </div>
-              </motion.div>
+              </Motion.div>
             )
           })}
         </div>
@@ -298,7 +298,7 @@ export const Products = () => {
           {filteredItems.map(item => {
             const status = getStockStatus(item);
             return (
-              <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-soft)' }}>
+              <Motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-soft)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   {item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={18} style={{ color: '#9ca3af' }} /></div>}
                   <div>
@@ -318,7 +318,7 @@ export const Products = () => {
                     <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger-color)' }} onClick={() => handleDelete(item.id)}><Trash2 size={16} /></button>
                   </div>
                 </div>
-              </motion.div>
+              </Motion.div>
             )
           })}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Clock, Package, Search, FileText, CreditCard, Banknote, Sun, Sunset, Moon, LayoutGrid, List, Edit2, Trash2, Check, X, Minus, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { SHIFTS } from '../data/mockData';
@@ -51,7 +51,7 @@ export const RecentActivity = () => {
   }, [filteredLogs]);
 
   const startEdit = (log) => { setEditingId(log.id); setEditQty(log.quantity); };
-  const saveEdit = (logId) => { updateLog(logId, { quantity: editQty }); setEditingId(null); };
+  const saveEdit = async (logId) => { if (await updateLog(logId, { quantity: editQty })) setEditingId(null); };
   const confirmDelete = (logId) => { if (window.confirm('Delete this entry? Stock will be restored.')) deleteLog(logId); };
 
   const exportCSV = () => {
@@ -106,7 +106,7 @@ export const RecentActivity = () => {
               const ShiftIcon = SHIFT_ICONS[group.shift.id];
               const colors = SHIFT_COLORS[group.shift.id];
               return (
-                <motion.div key={group.shift.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 30px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                <Motion.div key={group.shift.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 30px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
                   {/* Header */}
                   <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: colors.bg, borderBottom: `1px solid ${colors.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -172,7 +172,7 @@ export const RecentActivity = () => {
                       </div>
                     ))}
                   </div>
-                </motion.div>
+                </Motion.div>
               );
             })}
           </div>
@@ -184,8 +184,8 @@ export const RecentActivity = () => {
                 <tr><th>Time</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Payment</th><th>Room</th><th>Staff</th><th>Shift</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log, index) => (
-                  <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={log.id}>
+                {filteredLogs.map((log) => (
+                  <Motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={log.id}>
                     <td><div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}><Clock size={11} />{new Date(log.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div></td>
                     <td style={{ fontWeight: 500, fontSize: '0.85rem' }}>{log.itemName}</td>
                     <td>
@@ -221,7 +221,7 @@ export const RecentActivity = () => {
                         </div>
                       )}
                     </td>
-                  </motion.tr>
+                  </Motion.tr>
                 ))}
               </tbody>
             </table>

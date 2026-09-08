@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { AlertTriangle, Package, ShieldAlert } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -30,7 +30,7 @@ export const Alerts = () => {
           { label: 'Low Stock', count: lowStock.length, icon: <AlertTriangle size={15} />, color: 'var(--warning-color)', bg: '#fffbeb' },
           { label: 'Healthy', count: healthy, icon: <Package size={15} />, color: 'var(--success-color)', bg: '#ecfdf5' },
         ].map((s, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+          <Motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             style={{
               flex: 1, display: 'flex', alignItems: 'center', gap: '0.65rem',
               padding: '0.75rem 1rem',
@@ -44,7 +44,7 @@ export const Alerts = () => {
               <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: s.count > 0 && s.label !== 'Healthy' ? s.color : s.color }}>{s.count}</div>
               <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>{s.label}</div>
             </div>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
 
@@ -60,7 +60,7 @@ export const Alerts = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.65rem', overflowY: 'auto', flex: 1, alignContent: 'start' }}>
           {allAlerts.map((alert, index) => (
-            <motion.div
+            <Motion.div
               key={`${alert.id}-${alert.severity}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -86,7 +86,7 @@ export const Alerts = () => {
               <span className={`badge ${alert.severity === 'critical' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: '0.55rem' }}>
                 {alert.severity === 'critical' ? 'Out' : 'Low'}
               </span>
-            </motion.div>
+            </Motion.div>
           ))}
         </div>
       )}
