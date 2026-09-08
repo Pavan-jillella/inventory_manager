@@ -4,6 +4,8 @@ import { db } from '../lib/firebase';
 import { useAppContext } from '../context/AppContext';
 import { applyOperation, csv, download, emptyOperations, localDate } from '../lib/operations';
 import './Operations.css';
+import './DashboardRefresh.css';
+import { DailyOdometer, OperationsInsights } from '../components/OperationsInsights';
 
 const Field = ({ label, children }) => <label className="ops-field"><span>{label}</span>{children}</label>;
 export function Operations({ section }) {
@@ -62,12 +64,12 @@ export function Operations({ section }) {
   };
   const submit = type => async e => {
     e.preventDefault(); const form = e.currentTarget;
-    if (await save(type, { ...Object.fromEntries(new FormData(form)), ...(editing ? { id: editing.id } : {}) })) form.reset();
+    if (await save(type, { ...Object.fromEntries(new FormData(form)), ...(editing && type !== 'movement' && type !== 'mileage' ? { id: editing.id } : {}) })) form.reset();
   };
   const department = section === 'breakfast' ? 'Breakfast' : 'Housekeeping';
   const supplies = data.supplies.filter(i => i.department === department);
   const movements = data.movements.filter(i => i.department === department && i.date === date);
-  const trips = data.trips.filter(i => i.date === date).sort((a, b) => a.time.localeCompare(b.time));
+  const trips = data.trips.filter(i => i.date === date && !i.deletedAt).sort((a, b) => a.time.localeCompare(b.time));
   const expenses = data.expenses.filter(i => i.date === date);
   const title = { shuttle: 'Shuttle log', breakfast: 'Breakfast inventory', housekeeping: 'Housekeeping inventory', expenses: 'Credit card expenses' }[section];
   const exportRows = section === 'shuttle' ? trips : section === 'expenses' ? expenses : movements;
@@ -78,6 +80,7 @@ export function Operations({ section }) {
     {error && <p role="alert" className="ops-error">{error}</p>}
     {!ready && !error && <p role="status">Loading shared records…</p>}
     <fieldset disabled={busy || !ready} className="ops-workspace">
+    <OperationsInsights section={section} supplies={supplies} movements={movements} trips={trips} expenses={expenses} />
     {['breakfast', 'housekeeping'].includes(section) && <>
       <div className="ops-stats"><article><span>Inventory items</span><strong>{supplies.length}</strong></article><article><span>Low stock items</span><strong>{supplies.filter(i => i.stock <= i.minStock).length}</strong></article><article><span>Usage entries on selected date</span><strong>{movements.filter(i => i.kind === 'Used').length}</strong></article></div>
       <div className="ops-columns"><section className="ops-card"><h2>{editing ? 'Edit inventory item' : 'Add inventory item'}</h2><form key={editing?.id || 'new'} onSubmit={submit('supply')} className="ops-form"><input type="hidden" name="department" value={department} /><Field label="Item name"><input name="name" required maxLength={100} defaultValue={editing?.name} /></Field><div className="ops-row"><Field label="On hand"><input name="stock" type="number" min="0" step="0.01" required defaultValue={editing?.stock ?? 0} /></Field><Field label="Low stock threshold"><input name="minStock" type="number" min="0" step="0.01" required defaultValue={editing?.minStock ?? 5} /></Field></div><Field label="Unit (pieces, cartons, bottles)"><input name="unit" required maxLength={30} defaultValue={editing?.unit || 'pieces'} /></Field><button className="btn btn-primary">{busy ? 'Saving…' : 'Save inventory'}</button>{editing && <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel edit</button>}</form></section>
@@ -88,8 +91,9 @@ export function Operations({ section }) {
     {section === 'shuttle' && <>
       <div className="ops-stats"><article><span>Trips on selected date</span><strong>{trips.length}</strong></article><article><span>Completed trips</span><strong>{trips.filter(t => t.status === 'Completed').length}</strong></article><article><span>Recorded miles</span><strong>{data.mileage.filter(m => m.date === date && m.end !== '').reduce((s, m) => s + m.end - m.start, 0).toFixed(1)}</strong></article></div>
       <div className="ops-columns"><section className="ops-card"><h2>{editing ? 'Edit trip' : 'Schedule a trip'}</h2><form className="ops-form" key={editing?.id || 'trip'} onSubmit={submit('trip')}><div className="ops-row"><Field label="Room number"><input name="room" required maxLength={15} defaultValue={editing?.room} /></Field><Field label="Pick / drop"><select name="direction" defaultValue={editing?.direction}><option>Pick up</option><option>Drop off</option></select></Field></div><div className="ops-row"><Field label="Time"><input name="time" type="time" required defaultValue={editing?.time} /></Field><Field label="Status"><select name="status" defaultValue={editing?.status}><option>Scheduled</option><option>Completed</option><option>Cancelled</option></select></Field></div><Field label="Destination / driver / notes"><input name="notes" maxLength={300} defaultValue={editing?.notes} /></Field><button className="btn btn-primary">Save trip</button>{editing && <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel edit</button>}</form></section>
-      <section className="ops-card"><h2>Daily odometer</h2><form className="ops-form" onSubmit={async e => { e.preventDefault(); await save('mileage', Object.fromEntries(new FormData(e.currentTarget))); }}><Field label="Vehicle"><input name="vehicle" required maxLength={50} defaultValue="Hotel shuttle" /></Field><Field label="Starting miles · morning"><input name="start" type="number" min="0" step="0.1" required /></Field><Field label="Ending miles · night"><input name="end" type="number" min="0" step="0.1" /></Field><p>Leave ending miles blank until the shift ends. Saving the same vehicle updates its daily reading.</p><button className="btn btn-primary">Save mileage</button></form>{data.mileage.filter(m => m.date === date).map(m => <p key={m.id}>{m.vehicle}: {m.start} → {m.end === '' ? 'Awaiting night reading' : `${m.end} · ${(m.end - m.start).toFixed(1)} miles`}</p>)}</section></div>
-      <section className="ops-card"><h2>Trip schedule</h2><div className="ops-table"><table><thead><tr><th>Time</th><th>Room</th><th>Service</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead><tbody>{trips.map(t => <tr key={t.id}><td>{t.time}</td><td>{t.room}</td><td>{t.direction}</td><td>{t.status}</td><td>{t.notes}</td><td><button className="btn btn-secondary" onClick={() => setEditing(t)}>Edit trip</button></td></tr>)}</tbody></table>{!trips.length && <p className="ops-empty">No shuttle trips scheduled for this date.</p>}</div></section>
+      <DailyOdometer readings={data.mileage.filter(m => m.date === date)} save={save} date={date} /></div>
+      <section className="ops-card"><h2>Trip schedule</h2><div className="ops-table"><table><thead><tr><th>Time</th><th>Room</th><th>Service</th><th>Status</th><th>Notes</th><th>Action</th></tr></thead><tbody>{trips.map(t => <tr key={t.id}><td>{t.time}</td><td>{t.room}</td><td>{t.direction}</td><td>{t.status}</td><td>{t.notes}</td><td><button className="btn btn-secondary" onClick={() => setEditing(t)}>Edit trip</button><button className="btn ops-delete" onClick={() => save('trip-delete', { id: t.id })}>Delete trip</button></td></tr>)}</tbody></table>{!trips.length && <p className="ops-empty">No shuttle trips scheduled for this date.</p>}</div></section>
+      {data.trips.some(t => t.date === date && t.deletedAt) && <details className="ops-card"><summary>Deleted trips · restore a record</summary>{data.trips.filter(t => t.date === date && t.deletedAt).map(t => <div className="ops-deleted-row" key={t.id}><span>{t.time} · Room {t.room} · {t.direction}</span><button className="btn btn-secondary" onClick={() => save('trip-restore', { id: t.id })}>Restore trip</button></div>)}</details>}
     </>}
     {section === 'expenses' && <>
       <div className="ops-stats"><article><span>Credit card spend · selected date</span><strong>${(expenses.reduce((s, e) => s + Math.round(e.amount * 100), 0) / 100).toFixed(2)}</strong></article><article><span>Transactions</span><strong>{expenses.length}</strong></article></div>

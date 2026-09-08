@@ -2,6 +2,7 @@ import { prepareProductImage } from '../lib/productImage';
 import { InventoryImport } from '../components/InventoryImport';
 import { parseInventory } from '../lib/operations';
 import './Operations.css';
+import './DashboardRefresh.css';
 import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
@@ -14,6 +15,7 @@ export const Products = () => {
   const { items, addItem, updateItem, deleteItem, settings, showToast } = useAppContext();
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(emptyProduct);
@@ -24,7 +26,7 @@ export const Products = () => {
     ? settings.categories
     : [form.category || 'General'];
 
-  const filteredItems = items.filter(item =>
+  const filteredItems = items.filter(item => stockFilter === 'All' || (stockFilter === 'Low stock' ? item.stock <= item.minStock : item.stock === 0)).filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
     item.category.toLowerCase().includes(search.toLowerCase())
   );
@@ -88,7 +90,7 @@ export const Products = () => {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="inventory-dashboard" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header">
         <div>
           <h1>Inventory</h1>
@@ -98,7 +100,9 @@ export const Products = () => {
       </div>
 
       {/* Add/Edit Modal */}
-      <InventoryImport />
+      <div className="ops-stats inventory-overview"><article><span>Products in inventory</span><strong>{items.length}</strong><small>Across {new Set(items.map(i => i.category)).size} categories</small></article><article><span>Needs replenishment</span><strong>{items.filter(i => i.stock <= i.minStock).length}</strong><small>At or below minimum stock</small></article><article><span>Stock purchase value</span><strong>${items.reduce((sum, i) => sum + i.stock * (i.purchaseRate || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>On-hand quantity × purchase rate</small></article></div>
+      <details className="ops-card inventory-import"><summary>Import inventory from a file <span>CSV, TSV or JSON · review before saving</span></summary><InventoryImport /></details>
+      <div className="inventory-filters" aria-label="Filter inventory by stock">{['All', 'Low stock', 'Out of stock'].map(filter => <button key={filter} className="btn btn-secondary" aria-pressed={stockFilter === filter} onClick={() => setStockFilter(filter)}>{filter}</button>)}<span>{filteredItems.length} products shown</span></div>
       <AnimatePresence>
         {showModal && (
           <Motion.div
