@@ -188,7 +188,7 @@ export const IssueItem = () => {
                     </div>
                   )}
                   <div style={{ width: '74px', height: '74px', borderRadius: '0.85rem', overflow: 'hidden', marginBottom: '0.6rem', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} loading="lazy" />
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.25rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>{item.name}</div>
                   <div style={{ fontSize: '0.65rem', color: isLow ? 'var(--danger-color)' : 'var(--success-color)', fontWeight: 700 }}>{item.stock} in stock</div>
@@ -290,7 +290,7 @@ export const IssueItem = () => {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <img src={c.item.image} alt={c.item.name} style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.05)' }} />
+                        <img src={c.item.image} alt={c.item.name} style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'contain', background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item.name}</div>
                           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>{c.item.category}</div>

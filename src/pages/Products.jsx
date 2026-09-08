@@ -1,3 +1,7 @@
+import { prepareProductImage } from '../lib/productImage';
+import { InventoryImport } from '../components/InventoryImport';
+import { parseInventory } from '../lib/operations';
+import './Operations.css';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
@@ -8,6 +12,7 @@ const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purc
 
 export const Products = () => {
   const { items, addItem, updateItem, deleteItem, settings, showToast } = useAppContext();
+  const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -41,13 +46,15 @@ export const Products = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || isUploadingImage) return;
-    if (editingItem) {
-      await updateItem(editingItem.id, form);
-    } else {
-      await addItem(form);
-    }
-    setShowModal(false);
+    if (!form.name.trim() || isUploadingImage || isSaving) return;
+    setIsSaving(true);
+    try {
+      const validated = { ...parseInventory(JSON.stringify([form]), 'json')[0], image: form.image };
+      if (editingItem) await updateItem(editingItem.id, validated);
+      else await addItem(validated);
+      setShowModal(false);
+    } catch (e) { showToast(e.message || 'Unable to save product.', 'error'); }
+    finally { setIsSaving(false); }
   };
 
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
@@ -58,67 +65,20 @@ export const Products = () => {
     return { label: 'OK', cls: 'badge-success' };
   };
 
-  const toDataUrl = (file) => new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onerror = () => resolve('');
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(file);
-  });
-
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-
-    // Check file size if we aren't using Firebase Storage (to prevent Firestore/LocalStorage crashes)
-    if (!isFirebaseStorageConfigured && file.size > 1024 * 1024) {
-      showToast('File too large for local sync (~1MB limit). Please configure Firebase Storage for direct uploads.', 'error');
-      return;
-    }
-
-    setIsUploadingImage(true);
-    setUploadProgress(0);
-
+    if (!file || isUploadingImage) return;
+    setIsUploadingImage(true); setUploadProgress(0);
     try {
-      if (!isFirebaseStorageConfigured) {
-        setUploadProgress(20);
-        const localUrl = await toDataUrl(file);
-        setUploadProgress(100);
-        if (!localUrl) {
-          showToast('Could not process this image.', 'error');
-          return;
-        }
-        updateForm('image', localUrl);
-        showToast('Image attached (Local Sync Only)');
-        return;
-      }
-
-      // DIRECT CLOUD UPLOAD (NO COMPRESSION)
-      try {
-        const url = await uploadProductImage(file, (pct) => {
-          setUploadProgress(pct);
-        });
-        
-        if (url) {
-          updateForm('image', url);
-          showToast('Image uploaded directly to cloud storage!');
-        } else {
-          throw new Error('No URL returned');
-        }
-      } catch (err) {
-        console.error('Upload error:', err);
-        // Final fallback to local string if cloud fails
-        const fallback = await toDataUrl(file);
-        updateForm('image', fallback || '');
-        showToast('Cloud upload failed. Saved to local state.', 'warning');
-      }
-    } catch (err) {
-      showToast('Image process failed', 'error');
-    } finally {
-      setTimeout(() => {
-        setIsUploadingImage(false);
-        setUploadProgress(0);
-      }, 1000);
-    }
+      const prepared = await prepareProductImage(file);
+      const url = isFirebaseStorageConfigured
+        ? await uploadProductImage(prepared.blob, setUploadProgress)
+        : prepared.dataUrl;
+      if (!url) throw new Error('Upload failed. Please try again.');
+      updateForm('image', url); setUploadProgress(100);
+      showToast('Image ready');
+    } catch (e) { showToast(e.message || 'Unable to process image.', 'error'); }
+    finally { setIsUploadingImage(false); }
   };
 
   const onDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
@@ -138,6 +98,7 @@ export const Products = () => {
       </div>
 
       {/* Add/Edit Modal */}
+      <InventoryImport />
       <AnimatePresence>
         {showModal && (
           <motion.div
@@ -178,10 +139,10 @@ export const Products = () => {
                   }}
                   onClick={() => document.getElementById('imageUpload').click()}
                 >
-                  <input type="file" id="imageUpload" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  <input type="file" id="imageUpload" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
                   {form.image ? (
                     <div style={{ position: 'relative', width: '100%', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <img src={form.image} alt="" style={{ width: '60px', height: '60px', borderRadius: '0.5rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
+                      <img src={form.image} alt="" style={{ width: '60px', height: '60px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff', border: '1px solid var(--border-color)' }} />
                       <div style={{ flex: 1 }}>
                         <input type="text" className="input" value={form.image} onChange={e => updateForm('image', e.target.value)} onClick={e => e.stopPropagation()} placeholder="Or paste image link here..." style={{ width: '100%', fontSize: '0.75rem' }} />
                       </div>
@@ -242,7 +203,7 @@ export const Products = () => {
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button className="btn btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                <button className="btn btn-primary" onClick={() => void handleSave()} style={{ flex: 1, opacity: form.name.trim() && !isUploadingImage ? 1 : 0.5 }} disabled={!form.name.trim() || isUploadingImage}>
+                <button className="btn btn-primary" onClick={() => void handleSave()} style={{ flex: 1, opacity: form.name.trim() && !isUploadingImage ? 1 : 0.5 }} disabled={!form.name.trim() || isUploadingImage || isSaving}>
                   {isUploadingImage ? 'Uploading Image...' : editingItem ? 'Save Changes' : 'Add Product'}
                 </button>
               </div>
@@ -281,7 +242,7 @@ export const Products = () => {
                     <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', borderRadius: '0.4rem', objectFit: 'cover', border: '1px solid var(--border-color)' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '0.4rem', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} style={{ color: 'var(--accent-light)' }} /></div>}
+                          {item.image ? <img src={item.image} alt={item.name} style={{ width: '32px', height: '32px', borderRadius: '0.4rem', objectFit: 'contain', background: '#fff', border: '1px solid var(--border-color)' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '0.4rem', background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} style={{ color: 'var(--accent-light)' }} /></div>}
                           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{item.name}</span>
                         </div>
                       </td>
@@ -313,7 +274,7 @@ export const Products = () => {
             return (
               <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1.25rem', boxShadow: 'var(--shadow-soft)', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  {item.image ? <img src={item.image} style={{ width: '48px', height: '48px', borderRadius: '0.5rem', objectFit: 'cover' }} /> : <div style={{ width: '48px', height: '48px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} style={{ color: '#9ca3af' }} /></div>}
+                  {item.image ? <img src={item.image} alt={item.name} style={{ width: '48px', height: '48px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff' }} /> : <div style={{ width: '48px', height: '48px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} style={{ color: '#9ca3af' }} /></div>}
                   <span className={`badge ${status.cls}`}>{status.label}</span>
                 </div>
                 <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.25rem 0', fontWeight: 600 }}>{item.name}</h3>
@@ -339,7 +300,7 @@ export const Products = () => {
             return (
               <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} style={{ background: 'white', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: 'var(--shadow-soft)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  {item.image ? <img src={item.image} style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'cover' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={18} style={{ color: '#9ca3af' }} /></div>}
+                  {item.image ? <img src={item.image} alt={item.name} style={{ width: '40px', height: '40px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff' }} /> : <div style={{ width: '40px', height: '40px', borderRadius: '0.5rem', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={18} style={{ color: '#9ca3af' }} /></div>}
                   <div>
                     <h3 style={{ fontSize: '1rem', margin: '0 0 0.2rem 0', fontWeight: 600 }}>{item.name}</h3>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

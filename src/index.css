@@ -423,3 +423,7 @@ h3 { font-size: 1.25rem; font-family: var(--font-family); font-weight: 600; }
   .btn { padding: 0.6rem 1rem; font-size: 0.8rem; }
 }
 
+
+.mobile-menu,.mobile-shade{display:none}
+@media(max-width:768px){.mobile-menu{display:block;position:fixed;right:1rem;top:.7rem;z-index:120}.mobile-shade{display:block;position:fixed;inset:0;background:#0006;z-index:90}.main-content{padding-top:4.5rem}.sidebar{width:260px;max-width:80vw}.nav-item{min-height:44px;font-size:.875rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

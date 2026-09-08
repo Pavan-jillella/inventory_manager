@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { parseInventory } from '../lib/operations';
 import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift, CATEGORIES } from '../data/mockData';
 import {
-  isFirebaseConfigured,
+  isFirebaseConfigured, manageCloudStaff,
   readCollection,
   upsertManyDocs,
   upsertDocById,
@@ -23,7 +27,9 @@ const defaultEmailSettings = {
 };
 
 export const AppProvider = ({ children }) => {
+  const [authReady, setAuthReady] = useState(!isFirebaseConfigured);
   const [currentUser, setCurrentUser] = useState(() => {
+    if (isFirebaseConfigured || !import.meta.env.DEV) return null;
     try {
       const saved = localStorage.getItem('cis_currentUser');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
@@ -45,6 +51,7 @@ export const AppProvider = ({ children }) => {
     return [];
   });
   const [users, setUsers] = useState(() => {
+    if (isFirebaseConfigured) return [];
     try {
       const saved = localStorage.getItem('cis_users');
       if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -61,7 +68,7 @@ export const AppProvider = ({ children }) => {
     } catch(e) {}
     return DEFAULT_USERS.map((u) => ({ ...u, username: normalizeUsername(u.username) }));
   });
-  const [settings, setSettings] = useState(() => {
+  const [settings, setSettingsState] = useState(() => {
     try {
       const saved = localStorage.getItem('cis_settings');
       if (saved && saved !== 'undefined' && saved !== 'null') {
@@ -89,14 +96,29 @@ export const AppProvider = ({ children }) => {
   });
   const [toast, setToast] = useState(null);
 
+  useEffect(() => {
+    if (!auth) return;
+    return onAuthStateChanged(auth, async user => {
+      try {
+        if (!user) { setCurrentUser(null); return; }
+        const profile = await getDoc(doc(db, 'users', user.uid));
+        if (!profile.exists() || !['Admin', 'Front Desk'].includes(profile.data().role)) {
+          await signOut(auth); setToast({ message: 'Your account needs a staff role. Contact your administrator.', type: 'error' }); return;
+        }
+        setCurrentUser({ ...profile.data(), id: user.uid });
+      } catch { setCurrentUser(null); setToast({ message: 'Unable to verify staff access.', type: 'error' }); }
+      finally { setAuthReady(true); }
+    });
+  }, []);
+
   // Initial Firebase Fetch (if configured)
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || !currentUser) return;
     const fetchFirebaseData = async () => {
       try {
         const [dbItems, dbUsers, dbLogs, dbSettings] = await Promise.all([
           readCollection('items'),
-          readCollection('users'),
+          currentUser.role === 'Admin' ? readCollection('users') : Promise.resolve([]),
           readCollection('logs'),
           readSettings(),
         ]);
@@ -105,8 +127,6 @@ export const AppProvider = ({ children }) => {
 
         if (dbUsers.length > 0) {
           setUsers(dbUsers.map((u) => ({ ...u, username: normalizeUsername(u.username) })));
-        } else {
-          await upsertManyDocs('users', users);
         }
 
         if (dbLogs.length > 0) {
@@ -120,15 +140,13 @@ export const AppProvider = ({ children }) => {
         }
 
         if (dbSettings) {
-          setSettings({
+          setSettingsState({
             hotelName: dbSettings.hotelName || 'Country Inn & Suites',
             hotelAddress: dbSettings.hotelAddress || '123 Luxury Ave, Suite 100',
             categories: Array.isArray(dbSettings.categories) ? dbSettings.categories : CATEGORIES,
             notifications: dbSettings.notifications || { lowStock: true, outOfStock: true, shiftReport: false },
             emailReports: { ...defaultEmailSettings, ...(dbSettings.emailReports || {}) },
           });
-        } else {
-          await writeSettings(settings);
         }
       } catch (e) {
         console.error('Firebase fetch error:', e);
@@ -140,46 +158,42 @@ export const AppProvider = ({ children }) => {
     const interval = setInterval(fetchFirebaseData, 45000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser?.id]);
 
-  // Sync to LocalStorage (Immediate persistence)
-  useEffect(() => { localStorage.setItem('cis_items', JSON.stringify(items)); }, [items]);
-  useEffect(() => { localStorage.setItem('cis_logs', JSON.stringify(logs)); }, [logs]);
-  useEffect(() => { localStorage.setItem('cis_users', JSON.stringify(users)); }, [users]);
+  // Cloud records are not cached with passwords or trusted as authentication.
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem('cis_currentUser', JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem('cis_currentUser');
-    }
-  }, [currentUser]);
-  useEffect(() => {
-    localStorage.setItem('cis_settings', JSON.stringify(settings));
-    if (isFirebaseConfigured) {
-      const syncSettings = async () => {
-        try {
-          await writeSettings(settings);
-        } catch (e) {
-          console.error('Settings sync failed:', e);
-        }
-      };
-      syncSettings();
-    }
-  }, [settings]);
+    if (isFirebaseConfigured) return;
+    try {
+      for (const [key, value] of Object.entries({ items, logs, users, settings, currentUser })) {
+        if (value === null) localStorage.removeItem(`cis_${key}`);
+        else localStorage.setItem(`cis_${key}`, JSON.stringify(value));
+      }
+    } catch { setToast({ message: 'Browser storage is full or unavailable. Export your records before closing this page.', type: 'error' }); }
+  }, [items, logs, users, settings, currentUser]);
+  const setSettings = async (value) => {
+    const next = typeof value === 'function' ? value(settings) : value;
+    try {
+      if (isFirebaseConfigured) await writeSettings(next);
+      setSettingsState(next);
+    } catch { setToast({ message: 'Settings could not be saved.', type: 'error' }); }
+  };
 
-  const login = (username, password) => {
-    const safeUsername = normalizeUsername(username);
-    // Admin login with generic keys if none match, for ease of use
-    const user = users.find((u) => normalizeUsername(u.username) === safeUsername && u.password === password);
+  const login = async (username, password) => {
+    if (auth) {
+      const result = await signInWithEmailAndPassword(auth, username.trim(), password);
+      const profile = await getDoc(doc(db, 'users', result.user.uid));
+      if (!profile.exists() || !['Admin', 'Front Desk'].includes(profile.data().role)) {
+        await signOut(auth); throw new Error('Your account needs a staff role. Contact your administrator.');
+      }
+      const user = { ...profile.data(), id: result.user.uid };
+      setCurrentUser(user); return user;
+    }
+    if (!import.meta.env.DEV) throw new Error('Secure sign-in must be configured before production use.');
+    const user = users.find(u => normalizeUsername(u.username) === normalizeUsername(username) && u.password === password);
     if (user) { setCurrentUser(user); return user; }
-    // Fallback if users empty/broken
-    if (safeUsername === 'admin' && password === 'admin') {
-      const fallback = { id: 1, name: 'Admin', role: 'Admin', username: 'admin' };
-      setCurrentUser(fallback); return fallback;
-    }
     return null;
   };
-  const logout = () => setCurrentUser(null);
+  const logout = async () => { if (auth) await signOut(auth); setCurrentUser(null); };
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -188,6 +202,10 @@ export const AppProvider = ({ children }) => {
 
   // ── Staff CRUD ──
   const addStaff = async (name, username, password, role = 'Front Desk') => {
+    if (isFirebaseConfigured) {
+      try { const user = await manageCloudStaff({ action: 'create', name, email: username, password, role }); setUsers(prev => [...prev, user]); showToast('Staff account created'); return true; }
+      catch (e) { showToast(e.message || 'Unable to create staff account.', 'error'); return false; }
+    }
     const safeUsername = normalizeUsername(username);
     if (!safeUsername) { showToast('Username is required', 'error'); return false; }
     if (users.find((u) => normalizeUsername(u.username) === safeUsername)) { showToast('Username already taken!', 'error'); return false; }
@@ -198,15 +216,17 @@ export const AppProvider = ({ children }) => {
     showToast(`${name} added successfully`);
     return true;
   };
-  const removeStaff = async (userId) => { 
-    setUsers(prev => prev.filter(u => u.id !== userId)); 
-    if (isFirebaseConfigured) await deleteDocById('users', userId);
-    showToast('Staff removed'); 
+  const removeStaff = async userId => {
+    try {
+      if (userId === currentUser?.id) throw new Error('You cannot remove your own account.');
+      if (isFirebaseConfigured) await manageCloudStaff({ action: 'remove', uid: userId });
+      setUsers(prev => prev.filter(u => u.id !== userId)); showToast('Staff removed');
+    } catch (e) { showToast(e.message || 'Unable to remove staff.', 'error'); }
   };
 
   // ── Item CRUD ──
   const addItem = async (item) => {
-    const newItem = { ...item, id: Date.now(), stock: item.stock || 0, minStock: item.minStock || 5 };
+    const newItem = { ...item, id: crypto.randomUUID(), stock: item.stock ?? 0, minStock: item.minStock ?? 5 };
     if (isFirebaseConfigured) await upsertDocById('items', newItem.id, newItem);
     setItems(prev => [...prev, newItem]);
     showToast(`${item.name} added to inventory`);
@@ -214,12 +234,20 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateItem = async (id, updates) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
     if (isFirebaseConfigured) {
       const current = items.find(i => i.id === id);
       if (current) await upsertDocById('items', id, { ...current, ...updates });
     }
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
     showToast('Product updated');
+  };
+
+  const importItems = async (rows) => {
+    const imported = parseInventory(JSON.stringify(rows), 'json').map(row => ({ ...row, id: crypto.randomUUID() }));
+    if (isFirebaseConfigured) await upsertManyDocs('items', imported);
+    else localStorage.setItem('cis_items', JSON.stringify([...items, ...imported]));
+    setItems(prev => [...prev, ...imported]);
+    showToast(`${imported.length} inventory items imported`);
   };
 
   const deleteItem = async (id) => {
@@ -413,10 +441,10 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      currentUser, items, logs, users, settings, toast,
+      currentUser, authReady, items, logs, users, settings, toast,
       login, logout, showToast, 
       addStaff, removeStaff, 
-      addItem, updateItem, deleteItem, 
+      addItem, updateItem, deleteItem, importItems,
       logCartUsage, clearRevenueData, factoryReset,
       setSettings, updateLog, deleteLog, getShiftStats, getLogsForYear
     }}>

@@ -3,12 +3,11 @@ export const MEMBERSHIP_TIERS = ['None', 'Member', 'Gold', 'Platinum', 'Diamond'
 
 export const MOCK_ITEMS = [];
 
-export const DEFAULT_USERS = [
-  { id: 1, name: 'Admin',       role: 'Admin',      username: 'admin',  password: 'admin' },
-  { id: 2, name: 'Front Desk',  role: 'Front Desk', username: 'desk',   password: 'desk' },
-  { id: 3, name: 'Kalyan',      role: 'Admin',      username: 'kalyan', password: 'Pav1711' },
-  { id: 4, name: 'Maddy',       role: 'Admin',      username: 'maddy',  password: 'CIS123' },
-];
+// Local-only demo accounts are excluded from production bundles.
+export const DEFAULT_USERS = import.meta.env.DEV ? [
+  { id: 1, name: 'Demo Admin', role: 'Admin', username: 'admin', password: 'admin' },
+  { id: 2, name: 'Demo Front Desk', role: 'Front Desk', username: 'desk', password: 'desk' },
+] : [];
 
 export const SHIFTS = [
   { id: 'morning', label: 'Morning', start: 7, end: 15 },

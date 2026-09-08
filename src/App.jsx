@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { Toast } from './components/Toast';
 import { Layout } from './components/Layout';
+import { Operations } from './pages/Operations';
 import { Login } from './pages/Login';
 import { IssueItem } from './pages/IssueItem';
 import { RecentActivity } from './pages/RecentActivity';
@@ -15,7 +16,8 @@ import { Revenue } from './pages/Revenue';
 import { SettingsPage } from './pages/Settings';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { currentUser } = useAppContext();
+  const { currentUser, authReady } = useAppContext();
+  if (!authReady) return <p role="status">Verifying staff access…</p>;
 
   if (!currentUser) {
     return <Navigate to="/" replace />;
@@ -45,6 +47,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } />
 
+        {['shuttle', 'breakfast', 'housekeeping', 'expenses'].map(section => <Route key={section} path={`/operations/${section}`} element={<ProtectedRoute allowedRoles={['Front Desk', 'Admin']}><Operations key={section} section={section} /></ProtectedRoute>} />)}
         {/* Admin Only */}
         <Route path="/admin" element={
           <ProtectedRoute allowedRoles={['Admin']}>

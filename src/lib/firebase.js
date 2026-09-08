@@ -1,3 +1,5 @@
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
@@ -29,6 +31,11 @@ export const isFirebaseConfigured =
 export const isFirebaseStorageConfigured = isFirebaseConfigured && Boolean(firebaseConfig.storageBucket);
 
 const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+export const manageCloudStaff = async (data) => {
+  if (!app) throw new Error('Firebase is not configured.');
+  return (await httpsCallable(getFunctions(app), 'manageStaff')(data)).data;
+};
+export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = isFirebaseStorageConfigured ? getStorage(app) : null;
 
@@ -105,8 +112,8 @@ export const uploadProductImage = async (fileOrBlob, onProgress) => {
         reject(error);
       },
       async () => {
-        const downloadURL = await getDownloadURL(fileRef);
-        resolve(downloadURL);
+        try { resolve(await getDownloadURL(fileRef)); }
+        catch (error) { reject(error); }
       }
     );
   });
