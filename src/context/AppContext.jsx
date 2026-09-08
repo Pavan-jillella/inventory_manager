@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { parseInventory } from '../lib/operations';
 import { planIssue, planLogChange } from '../lib/inventory';
+import { staffAccessError, signInMessage } from '../lib/authMessages';
 import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift, CATEGORIES } from '../data/mockData';
 import {
   isFirebaseConfigured, manageCloudStaff,
@@ -104,11 +105,10 @@ export const AppProvider = ({ children }) => {
       try {
         if (!user) { setCurrentUser(null); return; }
         const profile = await getDoc(doc(db, 'users', user.uid));
-        if (!profile.exists() || !['Admin', 'Front Desk'].includes(profile.data().role)) {
-          await signOut(auth); setToast({ message: 'Your account needs a staff role. Contact your administrator.', type: 'error' }); return;
-        }
+        if (!profile.exists()) throw staffAccessError('app/staff-profile-missing');
+        if (!['Admin', 'Front Desk'].includes(profile.data().role)) throw staffAccessError('app/staff-role-invalid');
         setCurrentUser({ ...profile.data(), id: user.uid });
-      } catch { setCurrentUser(null); setToast({ message: 'Unable to verify staff access.', type: 'error' }); }
+      } catch (error) { setCurrentUser(null); setToast({ message: signInMessage(error), type: 'error' }); }
       finally { setAuthReady(true); }
     });
   }, []);
@@ -184,13 +184,12 @@ export const AppProvider = ({ children }) => {
     if (auth) {
       const result = await signInWithEmailAndPassword(auth, username.trim(), password);
       const profile = await getDoc(doc(db, 'users', result.user.uid));
-      if (!profile.exists() || !['Admin', 'Front Desk'].includes(profile.data().role)) {
-        await signOut(auth); throw new Error('Your account needs a staff role. Contact your administrator.');
-      }
+      if (!profile.exists()) throw staffAccessError('app/staff-profile-missing');
+      if (!['Admin', 'Front Desk'].includes(profile.data().role)) throw staffAccessError('app/staff-role-invalid');
       const user = { ...profile.data(), id: result.user.uid };
       setCurrentUser(user); return user;
     }
-    if (!import.meta.env.DEV) throw new Error('Secure sign-in must be configured before production use.');
+    if (!import.meta.env.DEV) throw staffAccessError('app/auth-not-configured');
     const user = users.find(u => normalizeUsername(u.username) === normalizeUsername(username) && u.password === password);
     if (user) { setCurrentUser(user); return user; }
     return null;
