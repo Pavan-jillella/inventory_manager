@@ -76,7 +76,7 @@ export const Staff = () => {
               </div>
 
               <div className="input-group">
-                <label>Username</label>
+                <label>Email / demo username</label>
                 <div style={{ position: 'relative' }}>
                   <User size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input type="text" className="input" value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} placeholder="e.g. sarah" style={{ width: '100%', paddingLeft: '2.5rem' }} />

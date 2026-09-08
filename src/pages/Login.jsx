@@ -1,3 +1,4 @@
+import { isFirebaseConfigured } from '../lib/firebase';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,22 +6,22 @@ import { User, Lock } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 export const Login = () => {
+  const [busy, setBusy] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAppContext();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
-    const user = login(username, password);
-    if (user) {
-      if (user.role === 'Admin') navigate('/admin');
-      else navigate('/issue-item');
-    } else {
-      setError('Invalid username or password');
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault(); if (busy) return;
+    setError(''); setBusy(true);
+    try {
+      const user = await login(username, password);
+      if (user) navigate(user.role === 'Admin' ? '/admin' : '/issue-item');
+      else setError('Invalid username or password');
+    } catch { setError('Unable to sign in. Check your credentials, connection, and staff access.'); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -70,23 +71,24 @@ export const Login = () => {
           </motion.div>
         )}
 
+        {!isFirebaseConfigured && <p role="status" style={{ fontSize: '.875rem', marginBottom: '1rem', color: '#735100' }}>Local demonstration mode. Shared storage and secure sign-in are not configured.</p>}
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           <div className="input-group">
-            <label>Username</label>
+            <label htmlFor="login-username">{isFirebaseConfigured ? 'Email' : 'Username'}</label>
             <div style={{ position: 'relative' }}>
               <User size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input type="text" className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
+              <input id="login-username" autoComplete="username" required type={isFirebaseConfigured ? "email" : "text"} className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
             </div>
           </div>
           <div className="input-group">
-            <label>Password</label>
+            <label htmlFor="login-password">Password</label>
             <div style={{ position: 'relative' }}>
               <Lock size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" style={{ width: '100%', paddingLeft: '2.5rem' }} />
+              <input id="login-password" required autoComplete="current-password" type="password" className="input" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password" style={{ width: '100%', paddingLeft: '2.5rem' }} />
             </div>
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem' }}>
-            Sign In
+          <button disabled={busy} type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem' }}>
+            {busy ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
       </motion.div>

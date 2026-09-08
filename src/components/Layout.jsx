@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LogOut, Package, ClipboardList, LayoutDashboard, Settings, Users, AlertTriangle, BarChart3, Clock, DollarSign } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -7,6 +7,7 @@ import { getCurrentShift } from '../data/mockData';
 export const Layout = () => {
   const { currentUser, logout, items } = useAppContext();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -21,7 +22,9 @@ export const Layout = () => {
 
   return (
     <div className="app-container">
-      <nav className="sidebar">
+      <button className="mobile-menu btn btn-primary" aria-expanded={menuOpen} aria-controls="main-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? 'Close menu' : 'Menu'}</button>
+      {menuOpen && <button className="mobile-shade" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
+      <nav id="main-navigation" aria-label="Main navigation" className={`sidebar ${menuOpen ? 'open' : ''}`} onClick={e => { if (e.target.closest('a')) setMenuOpen(false); }}>
         {/* Brand */}
         <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <img src="/logo.png" alt="Logo" style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
@@ -49,6 +52,7 @@ export const Layout = () => {
             <ClipboardList size={18} /> Activity Log
           </NavLink>
 
+          {['shuttle', 'breakfast', 'housekeeping', 'expenses'].map((section, index) => <NavLink key={section} to={`/operations/${section}`} className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}><ClipboardList size={18} />{['Shuttle', 'Breakfast', 'Housekeeping', 'CC Expenses'][index]}</NavLink>)}
           {isAdmin && (
             <>
               <div style={{ padding: '1rem 1.25rem 0.5rem', fontSize: '0.6rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.1em', fontWeight: 700 }}>
