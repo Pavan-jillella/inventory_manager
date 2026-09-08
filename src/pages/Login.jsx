@@ -1,7 +1,8 @@
 import { isFirebaseConfigured } from '../lib/firebase';
+import { signInMessage } from '../lib/authMessages';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { User, Lock } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -20,7 +21,7 @@ export const Login = () => {
       const user = await login(username, password);
       if (user) navigate(user.role === 'Admin' ? '/admin' : '/issue-item');
       else setError('Invalid username or password');
-    } catch { setError('Unable to sign in. Check your credentials, connection, and staff access.'); }
+    } catch (error) { setError(signInMessage(error)); }
     finally { setBusy(false); }
   };
 
@@ -32,7 +33,7 @@ export const Login = () => {
     }}>
       {/* Dark overlay for better readability */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}></div>
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -63,12 +64,13 @@ export const Login = () => {
         </div>
 
         {error && (
-          <motion.div
+          <Motion.div
+            role="alert"
             initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
             style={{ padding: '0.6rem 1rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.75rem', color: 'var(--danger-color)', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 500 }}
           >
             {error}
-          </motion.div>
+          </Motion.div>
         )}
 
         {!isFirebaseConfigured && <p role="status" style={{ fontSize: '.875rem', marginBottom: '1rem', color: '#735100' }}>Local demonstration mode. Shared storage and secure sign-in are not configured.</p>}
@@ -77,7 +79,7 @@ export const Login = () => {
             <label htmlFor="login-username">{isFirebaseConfigured ? 'Email' : 'Username'}</label>
             <div style={{ position: 'relative' }}>
               <User size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input id="login-username" autoComplete="username" required type={isFirebaseConfigured ? "email" : "text"} className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter username" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
+              <input id="login-username" autoComplete="username" required type={isFirebaseConfigured ? "email" : "text"} className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder={isFirebaseConfigured ? 'Enter your registered email' : 'Enter username'} style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
             </div>
           </div>
           <div className="input-group">
@@ -91,7 +93,7 @@ export const Login = () => {
             {busy ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-      </motion.div>
+      </Motion.div>
     </div>
   );
 };

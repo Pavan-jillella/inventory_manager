@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Shield, User, Lock, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -51,12 +51,12 @@ export const Staff = () => {
       {/* Add Staff Modal */}
       <AnimatePresence>
         {showAdd && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
             onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}
           >
-            <motion.div
+            <Motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -110,8 +110,8 @@ export const Staff = () => {
                   <Plus size={16} /> Create Staff
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
@@ -142,7 +142,7 @@ export const Staff = () => {
               </tr>
             ) : (
               filteredUsers.map((user, index) => (
-                <motion.tr
+                <Motion.tr
                   key={user.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -180,7 +180,7 @@ export const Staff = () => {
                       <Trash2 size={14} />
                     </button>
                   </td>
-                </motion.tr>
+                </Motion.tr>
               ))
             )}
           </tbody>

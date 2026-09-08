@@ -28,6 +28,12 @@ export function applyOperation(state, action) {
     if (record.kind === 'Used' && item.stock < record.quantity) throw new Error(`Only ${item.stock} ${item.unit} available.`);
     item.stock = Math.round((item.stock + (record.kind === 'Used' ? -record.quantity : record.quantity)) * 100) / 100;
     next.movements.unshift({ ...record, department: item.department, itemName: item.name });
+  } else if (action.type === 'trip-delete' || action.type === 'trip-restore') {
+    const trip = next.trips.find(i => i.id === record.id && i.date === record.date);
+    if (!trip) throw new Error('Trip no longer exists for this date.');
+    trip.deletedAt = action.type === 'trip-delete' ? record.updatedAt : null;
+    trip.updatedAt = record.updatedAt;
+    trip.updatedBy = record.staff;
   } else if (action.type === 'trip') {
     if (!String(record.room || '').trim() || !/^\d{2}:\d{2}$/.test(record.time) || !['Pick up', 'Drop off'].includes(record.direction)) throw new Error('Room, time, and pick/drop are required.');
     next.trips = [...next.trips.filter(i => i.id !== record.id), record];

@@ -7,7 +7,18 @@ Inventory and issue-tracking app for hotel front desk and admin operations.
 - React + Vite
 - Firebase Firestore (data)
 - Firebase Storage (product images)
-- LocalStorage fallback (offline/dev without Firebase)
+- Firebase Authentication (email/password sign-in)
+- LocalStorage demonstration mode during local development only
+
+## Hotel operations
+
+- `/operations/shuttle`: room, pick/drop, scheduled time, trip status, and daily vehicle odometer readings.
+- `/operations/breakfast`: stock, morning usage, receipts, stock corrections, and low-stock flags.
+- `/operations/housekeeping`: supplies, usage, receipts, and stock corrections.
+- `/operations/expenses`: daily credit-card expenses and totals; card details are limited to the last four digits.
+- Inventory accepts CSV, TSV, and JSON files (2 MB / 500 rows maximum), with an editable preview before import. Download the CSV template in the app. Excel and PDF tables must currently be exported to CSV first.
+- Product images accept JPEG, PNG, and WebP, up to 10 MB. Images are resized proportionally and displayed without cropping.
+- Daily CSV exports are available in each operations section. Inventory issue and activity correction writes use Firestore transactions.
 
 ## Firebase Setup
 
@@ -27,7 +38,27 @@ VITE_FIREBASE_APP_ID=your_app_id
 ```
 
 When Firebase is configured, app data syncs to Firestore and product uploads go to Storage.
-If Firebase is not configured, the app continues to run on LocalStorage.
+Local development without Firebase uses demonstration accounts and browser storage. Production deliberately requires Firebase Authentication; demonstration credentials are excluded from production builds.
+
+## Production rollout requirements
+
+Do not deploy this branch over the existing site until the authentication migration is complete. Existing username/password documents alone do not satisfy Firebase Authentication.
+
+1. Authenticate the Firebase CLI to the existing hotel project and back up its data.
+2. Enable the email/password provider in Firebase Authentication and add the production domain to its authorized domains.
+3. Provision existing staff in Firebase Authentication. Create a matching `users/{authUid}` profile containing `id`, `name`, `username` (email), and `role` (`Admin` or `Front Desk`). Never include passwords in these profiles. Confirm an administrator can sign in before switching production.
+4. Deploy `firestore.rules`, `storage.rules`, and the `manageStaff` callable function. Staff management has its own Node.js 22 codebase so it can deploy without configuring optional SMTP reports:
+
+   ```sh
+   npm ci --prefix functions-staff
+   firebase deploy --config firebase.staff.json --project country-inn-suites --only firestore:rules,storage,functions:staff
+   ```
+
+   The staff page requires that function, and cloud resets must not remove the last administrator. The separate `functions` codebase contains optional email reports and still requires its SMTP secrets.
+5. Verify signed-out access is denied, both staff roles can perform their permitted workflows, and two devices see the same saved inventory and daily records.
+6. Run `npm ci`, `npm run lint`, `npm test`, and `npm run build`. Deploy to a Vercel preview using the existing project settings, verify sign-in and cloud saves there, and only then promote to production.
+
+The local build, lint, and 20 automated tests pass. Browser checks covered all four operations pages, stock overuse rejection, persistence, expense correction, CSV preview/edit/import, mobile navigation, image upload, and recoverable trip deletion. Authenticated cloud checks with two separate sessions are required before promoting a new release. Local demonstration records do not automatically migrate to Firestore.
 
 ## Firestore Collections
 
@@ -35,6 +66,8 @@ If Firebase is not configured, the app continues to run on LocalStorage.
 - `users` (document id = user id)
 - `logs` (document id = log id)
 - `settings/app` (single document)
+- `ops_supplies/{id}` (breakfast and housekeeping supplies)
+- `ops_days/{YYYY-MM-DD}` (daily usage, trips, odometer readings, and expenses)
 
 ### Automated Daily Email Reports (7:00 AM)
 
@@ -72,5 +105,6 @@ The scheduled function sends a combined CSV report for Morning, Afternoon, and N
 npm install
 npm run dev
 npm run lint
+npm test
 npm run build
 ```

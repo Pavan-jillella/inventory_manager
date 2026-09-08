@@ -1,0 +1,18 @@
+import { useState } from 'react';
+
+export function OperationsInsights({ section, supplies = [], movements = [], trips = [], expenses = [] }) {
+  const rows = section === 'shuttle'
+    ? ['Scheduled', 'Completed', 'Cancelled'].map(label => ({ label, value: trips.filter(t => t.status === label).length, unit: 'trips' }))
+    : section === 'expenses'
+      ? [...new Set(expenses.map(e => e.category))].map(label => ({ label, value: expenses.filter(e => e.category === label).reduce((sum, e) => sum + Math.round(e.amount * 100), 0) / 100, unit: 'USD' }))
+      : supplies.map(i => ({ id: i.id, available: i.stock, label: i.name, value: movements.filter(m => m.itemId === i.id && m.kind === 'Used').reduce((sum, m) => sum + m.quantity, 0), unit: i.unit })).filter(r => r.value > 0);
+  const max = Math.max(1, ...rows.map(r => r.value));
+  const stock = ['breakfast', 'housekeeping'].includes(section);
+  return <section className="ops-card ops-insights"><div><p className="ops-eyebrow">AT A GLANCE</p><h2>{section === 'shuttle' ? 'Your day in motion' : section === 'expenses' ? 'Where today’s spend goes' : 'Daily consumption'}</h2><p className="ops-support">{stock ? 'Usage by item on the selected date. Quantities retain their own units.' : 'A breakdown of records for the selected business date.'}</p></div><div className="ops-bars">{rows.length ? rows.map(r => <div className="ops-bar-row" key={r.id || r.label}><div><span>{r.label}</span><strong>{Number(r.value.toFixed(2)).toLocaleString()} {r.unit}</strong></div><div className="ops-bar-track"><span style={{ width: `${r.value / (stock ? Math.max(1, r.value + r.available) : max) * 100}%` }} /></div></div>) : <p className="ops-empty">Your daily activity will appear here as records are added.</p>}{stock && rows.length > 0 && <small>Each bar shows used quantity relative to used + currently available stock for that item.</small>}</div></section>;
+}
+
+export function DailyOdometer({ readings, save, date }) {
+  const [vehicle, setVehicle] = useState('Hotel shuttle');
+  const reading = readings.find(r => r.vehicle === vehicle);
+  return <section className="ops-card ops-odometer"><p className="ops-eyebrow">OPEN SHIFT → CLOSE SHIFT</p><h2>Daily odometer</h2><div className="ops-distance"><strong>{reading && reading.end !== '' ? (reading.end - reading.start).toFixed(1) : '—'}</strong><span>miles recorded</span></div><form className="ops-form" onSubmit={async e => { e.preventDefault(); await save('mileage', Object.fromEntries(new FormData(e.currentTarget))); }}><label className="ops-field"><span>Vehicle</span><input name="vehicle" required maxLength={50} value={vehicle} onChange={e => setVehicle(e.target.value)} list="shuttle-vehicles" /></label><datalist id="shuttle-vehicles">{readings.map(r => <option key={r.id} value={r.vehicle} />)}</datalist><div key={`${date}-${vehicle}-${reading?.updatedAt || ''}`} className="ops-row"><label className="ops-field"><span>Starting miles · morning</span><input name="start" type="number" min="0" step="0.1" required defaultValue={reading?.start ?? ''} /></label><label className="ops-field"><span>Ending miles · night</span><input name="end" type="number" min="0" step="0.1" defaultValue={reading?.end ?? ''} /></label></div><p>Save the morning reading first. Return at shift end to complete the day.</p><button className="btn btn-primary">Save mileage</button></form><div className="ops-reading-list">{readings.map(r => <button type="button" key={r.id} onClick={() => setVehicle(r.vehicle)}><span>{r.vehicle}</span><strong>{r.start} → {r.end === '' ? 'Shift open' : r.end}</strong></button>)}</div></section>;
+}

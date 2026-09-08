@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { DollarSign, TrendingUp, CreditCard, Banknote, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useAppContext } from '../context/AppContext';
@@ -7,9 +7,9 @@ import { useAppContext } from '../context/AppContext';
 const COLORS = ['#059669', '#3b82f6', '#b89771', '#d97706', '#8b5cf6'];
 
 export const Revenue = () => {
-  const { logs, items, getLogsForYear } = useAppContext();
+  const { logs, getLogsForYear } = useAppContext();
   const [period, setPeriod] = useState('7');
-  const ytdLogs = useMemo(() => getLogsForYear(), [logs, getLogsForYear]);
+  const ytdLogs = getLogsForYear();
   const ytdRevenue = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0), 0);
   const ytdProfit = ytdLogs.reduce((s, l) => s + (l.totalAmount || 0) - (l.purchaseCost || 0), 0);
 
@@ -104,18 +104,18 @@ export const Revenue = () => {
           { label: 'Net Profit', value: `$${totalProfit.toFixed(2)}`, icon: <TrendingUp size={18} style={{ color: 'var(--success-color)' }} />, color: totalProfit >= 0 ? 'var(--success-color)' : 'var(--danger-color)' },
           { label: 'Profit Margin', value: totalRevenue > 0 ? `${((totalProfit / totalRevenue) * 100).toFixed(0)}%` : '—', icon: <DollarSign size={18} style={{ color: '#8b5cf6' }} />, color: '#8b5cf6' },
         ].map((s, i) => (
-          <motion.div key={i} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
+          <Motion.div key={i} className="stat-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</span>
               {s.icon}
             </div>
             <div style={{ fontSize: '1.6rem', fontFamily: 'var(--font-display)', fontWeight: 500, color: s.color }}>{s.value}</div>
-          </motion.div>
+          </Motion.div>
         ))}
       </div>
 
       {/* YTD Financial Summary */}
-      <motion.div 
+      <Motion.div
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         style={{ 
           background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', 
@@ -134,7 +134,7 @@ export const Revenue = () => {
         <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
           Showing cumulative statistics for <strong>{new Date().getFullYear()}</strong>
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Revenue Trend Area Chart */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>

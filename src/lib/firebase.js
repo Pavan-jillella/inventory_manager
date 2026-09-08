@@ -1,6 +1,7 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
+import { planIssue, planLogChange } from './inventory';
 import {
   getFirestore,
   collection,
@@ -10,6 +11,7 @@ import {
   deleteDoc,
   writeBatch,
   getDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
@@ -38,6 +40,28 @@ export const manageCloudStaff = async (data) => {
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = isFirebaseStorageConfigured ? getStorage(app) : null;
+
+export const issueCloudItems = (cart, details) => runTransaction(db, async transaction => {
+  const snapshots = await Promise.all(cart.map(entry => transaction.get(doc(db, 'items', String(entry.item.id)))));
+  const plan = planIssue(snapshots.filter(s => s.exists()).map(s => s.data()), cart, details);
+  for (const item of plan.updatedItems) transaction.update(doc(db, 'items', String(item.id)), { stock: item.stock });
+  for (const log of plan.newLogs) transaction.set(doc(db, 'logs', String(log.id)), log);
+  return plan;
+});
+
+export const changeCloudLog = (id, updates) => runTransaction(db, async transaction => {
+  const logRef = doc(db, 'logs', String(id));
+  const snapshot = await transaction.get(logRef);
+  if (!snapshot.exists()) throw new Error('Entry no longer exists.');
+  const log = snapshot.data();
+  const itemRef = doc(db, 'items', String(log.itemId));
+  const item = await transaction.get(itemRef);
+  const plan = planLogChange(log, item.exists() ? item.data() : null, updates);
+  if (plan.updatedItem) transaction.update(itemRef, { stock: plan.updatedItem.stock });
+  if (plan.updatedLog) transaction.set(logRef, plan.updatedLog);
+  else transaction.delete(logRef);
+  return plan;
+});
 
 export const readCollection = async (name) => {
   if (!db) return [];

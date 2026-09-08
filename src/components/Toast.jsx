@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
@@ -9,7 +9,7 @@ export const Toast = () => {
   return (
     <AnimatePresence>
       {toast && (
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 50, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95, y: 30 }}
@@ -33,7 +33,7 @@ export const Toast = () => {
         >
           {toast.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle size={20} />}
           <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{toast.message}</span>
-        </motion.div>
+        </Motion.div>
       )}
     </AnimatePresence>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Building2, Bell, Tag, Plus, X, Mail, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useState } from 'react';
@@ -53,7 +53,7 @@ export const SettingsPage = () => {
       </div>
 
       {/* Hotel Details */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', marginBottom: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
+      <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', marginBottom: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <Building2 size={18} style={{ color: 'var(--accent-color)' }} />
           <h3 style={{ margin: 0 }}>Hotel Details</h3>
@@ -66,10 +66,10 @@ export const SettingsPage = () => {
           <label>Address</label>
           <input type="text" className="input" value={settings.hotelAddress} onChange={e => updateSetting('hotelAddress', e.target.value)} />
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Categories */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', marginBottom: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
+      <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', marginBottom: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <Tag size={18} style={{ color: 'var(--accent-color)' }} />
           <h3 style={{ margin: 0 }}>Item Categories</h3>
@@ -88,10 +88,10 @@ export const SettingsPage = () => {
           <input type="text" className="input" value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="New category..." onKeyDown={e => e.key === 'Enter' && addCategory()} style={{ flex: 1 }} />
           <button className="btn btn-outline btn-sm" onClick={addCategory}><Plus size={14} /> Add</button>
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Notifications */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)' }}>
+      <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <Bell size={18} style={{ color: 'var(--accent-color)' }} />
           <h3 style={{ margin: 0 }}>Notifications</h3>
@@ -114,10 +114,10 @@ export const SettingsPage = () => {
             </label>
           </div>
         ))}
-      </motion.div>
+      </Motion.div>
 
       {/* Daily Email Reports */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
+      <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <Mail size={18} style={{ color: 'var(--accent-color)' }} />
           <h3 style={{ margin: 0 }}>Automated Daily Reports</h3>
@@ -172,10 +172,10 @@ export const SettingsPage = () => {
             />
           </div>
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Data Cleanup */}
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: 'white', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
+      <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: 'white', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
           <Trash2 size={18} style={{ color: 'var(--danger-color)' }} />
           <h3 style={{ margin: 0, color: 'var(--danger-color)' }}>Data Cleanup</h3>
@@ -218,7 +218,7 @@ export const SettingsPage = () => {
             <Trash2 size={12} /> Force Clear Cloud Logs Only
           </button>
         </div>
-      </motion.div>
+      </Motion.div>
     </div>
   );
 };

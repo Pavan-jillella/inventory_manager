@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Minus, Check, Package, Hash, Zap, X, ShoppingCart, CreditCard, Banknote } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { getCurrentShift, MEMBERSHIP_TIERS } from '../data/mockData';
@@ -16,6 +16,8 @@ export const IssueItem = () => {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [membershipTier, setMembershipTier] = useState('None');
   const searchInputRef = useRef(null);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
   const shift = getCurrentShift();
   const shiftStats = getShiftStats(shift.id);
@@ -69,8 +71,11 @@ export const IssueItem = () => {
 
   const cartQty = cart.reduce((s, c) => s + c.quantity, 0);
 
-  const handleSubmit = async () => {
-    if (cart.length === 0) return;
+  const handleSubmit = useCallback(async () => {
+    if (cart.length === 0 || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
     const success = await logCartUsage(cart, roomNumber, notes, rateType, paymentMethod, membershipTier);
     if (success) {
       setCart([]);
@@ -81,7 +86,8 @@ export const IssueItem = () => {
       setMembershipTier('None');
       searchInputRef.current?.focus();
     }
-  };
+    } finally { savingRef.current = false; setSaving(false); }
+  }, [cart, roomNumber, notes, rateType, paymentMethod, membershipTier, logCartUsage]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -92,7 +98,7 @@ export const IssueItem = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, roomNumber, notes, rateType]);
+  }, [cart.length, handleSubmit]);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -168,7 +174,7 @@ export const IssueItem = () => {
               const inCart = cart.find(c => c.item.id === item.id);
               const isLow = item.stock <= item.minStock;
               return (
-                <motion.div
+                <Motion.div
                   whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   key={item.id} onClick={() => addToCart(item)}
                   style={{
@@ -195,7 +201,7 @@ export const IssueItem = () => {
                   <div style={{ fontSize: '0.75rem', color: 'var(--accent-dark)', fontWeight: 800, marginTop: '0.25rem' }}>
                     ${rateType === 'staff' ? item.staffRate?.toFixed(2) : item.guestRate?.toFixed(2)}
                   </div>
-                </motion.div>
+                </Motion.div>
               );
             })}
             {filteredItems.length === 0 && (
@@ -266,17 +272,17 @@ export const IssueItem = () => {
           <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', minHeight: 0, paddingRight: '4px' }}>
             <AnimatePresence mode="popLayout">
               {cart.length === 0 ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '2rem' }}>
                   <Package size={40} style={{ color: 'var(--accent-light)', opacity: 0.3, marginBottom: '1rem' }} />
                   <p style={{ fontFamily: 'var(--font-display)', color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>Empty Cart</p>
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '0.2rem', lineHeight: 1.4 }}>Select items from the catalog<br/>to begin transaction.</p>
-                </motion.div>
+                </Motion.div>
               ) : (
                 cart.map(c => {
                   const rate = rateType === 'staff' ? (c.item.staffRate || 0) : (c.item.guestRate || 0);
                   return (
-                    <motion.div
+                    <Motion.div
                       layout
                       key={c.item.id}
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -326,7 +332,7 @@ export const IssueItem = () => {
                           </div>
                         </div>
                       </div>
-                    </motion.div>
+                    </Motion.div>
                   );
                 })
               )}
@@ -418,9 +424,10 @@ export const IssueItem = () => {
               </div>
 
               {/* Submit - Action Button */}
-              <motion.button 
+              <Motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 className="btn btn-primary" 
+                disabled={saving}
                 onClick={() => void handleSubmit()} 
                 style={{ 
                   width: '100%', padding: '1rem', fontSize: '1rem', fontWeight: 800, borderRadius: '1rem',
@@ -429,11 +436,11 @@ export const IssueItem = () => {
                   border: 'none'
                 }}
               >
-                <Check size={20} /> Finish Transaction
+                <Check size={20} /> {saving ? 'Saving…' : 'Finish Transaction'}
                 <span style={{ marginLeft: 'auto', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <Zap size={10} fill="white" /> ENTER
                 </span>
-              </motion.button>
+              </Motion.button>
             </div>
           )}
         </div>
