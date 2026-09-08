@@ -424,7 +424,7 @@ export const IssueItem = () => {
               </div>
 
               {/* Submit - Action Button */}
-              <Motion.button 
+              <Motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 className="btn btn-primary" 
                 disabled={saving}

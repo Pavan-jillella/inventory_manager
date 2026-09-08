@@ -84,7 +84,7 @@ export const Dashboard = () => {
       </div>
 
       {/* YTD Snapshot Banner */}
-      <Motion.div 
+      <Motion.div
         initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}
         style={{ 
           marginBottom: '1.5rem', padding: '1.25rem 1.75rem', borderRadius: 'var(--radius-lg)',

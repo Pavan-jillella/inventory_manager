@@ -115,7 +115,7 @@ export const Revenue = () => {
       </div>
 
       {/* YTD Financial Summary */}
-      <Motion.div 
+      <Motion.div
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         style={{ 
           background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', 
