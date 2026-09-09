@@ -1,11 +1,13 @@
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const nodemailer = require('nodemailer');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { defineSecret } = require('firebase-functions/params');
+const { reportSchedule, localDay } = require('./reportSchedule');
 
-admin.initializeApp();
-const db = admin.firestore();
+initializeApp();
+const db = getFirestore();
 const smtpHost = defineSecret('REPORT_EMAIL_SMTP_HOST');
 const smtpPort = defineSecret('REPORT_EMAIL_SMTP_PORT');
 const smtpUser = defineSecret('REPORT_EMAIL_SMTP_USER');
@@ -26,7 +28,8 @@ const parseEmails = (raw) =>
     .filter(Boolean);
 
 const escapeCsv = (value) => {
-  const text = String(value ?? '');
+  const raw = String(value ?? '');
+  const text = /^[=+@\-\t\r]/.test(raw) ? "'" + raw : raw;
   if (text.includes(',') || text.includes('"') || text.includes('\n')) {
     return `"${text.replace(/"/g, '""')}"`;
   }
@@ -68,15 +71,6 @@ const createCsv = (logs) => {
   return lines.join('\n');
 };
 
-const getDateRange = () => {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(start.getDate() - 1);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setHours(23, 59, 59, 999);
-  return { startIso: start.toISOString(), endIso: end.toISOString(), reportDate: start };
-};
 
 const createTransporter = () => {
   const host = smtpHost.value();
@@ -88,15 +82,20 @@ const createTransporter = () => {
     host,
     port,
     secure: port === 465,
+    requireTLS: port !== 465,
+    connectionTimeout: 30000,
+    socketTimeout: 60000,
     auth: { user, pass },
   });
 };
 
 exports.sendDailyShiftReport = onSchedule(
   {
-    schedule: '0 7 * * *',
+    schedule: 'every 5 minutes',
     timeZone: 'America/New_York',
     memory: '256MiB',
+    maxInstances: 1,
+    timeoutSeconds: 180,
     secrets: [smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom],
   },
   async () => {
@@ -108,6 +107,7 @@ exports.sendDailyShiftReport = onSchedule(
     const settings = settingsSnap.data() || {};
     const emailReports = settings.emailReports || {};
     const recipients = parseEmails(emailReports.recipients);
+    if (recipients.length > 20 || recipients.some(address => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address))) throw new Error('Invalid report recipients');
     const sender = smtpFrom.value();
     if (!emailReports.enabled || recipients.length === 0 || !sender) {
       logger.info('Email reports disabled or missing recipients/sender.');
@@ -120,13 +120,26 @@ exports.sendDailyShiftReport = onSchedule(
       return;
     }
 
-    const { startIso, endIso, reportDate } = getDateRange();
+    const now = new Date();
+    const timeZone = emailReports.timeZone || 'America/New_York';
+    const schedule = reportSchedule(now, timeZone, emailReports.scheduleTime || '07:00');
+    if (!schedule.due) return;
+    const delivery = db.collection('report_deliveries').doc(schedule.reportDate);
+    const claimed = await db.runTransaction(async tx => {
+      if ((await tx.get(delivery)).exists) return false;
+      tx.set(delivery, { status: 'sending', claimedAt: now.toISOString(), reportDate: schedule.reportDate });
+      return true;
+    });
+    if (!claimed) return;
+    try {
+    const startIso = new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString();
+    const endIso = now.toISOString();
     const snap = await db
       .collection('logs')
       .where('timestamp', '>=', startIso)
       .where('timestamp', '<=', endIso)
       .get();
-    const logs = snap.docs.map((doc) => doc.data());
+    const logs = snap.docs.map((doc) => doc.data()).filter(log => localDay(log.timestamp, timeZone) === schedule.reportDate);
     const grouped = SHIFT_ORDER.reduce((acc, shiftId) => {
       acc[shiftId] = logs.filter((log) => log.shift === shiftId);
       return acc;
@@ -140,7 +153,7 @@ exports.sendDailyShiftReport = onSchedule(
       return `<tr><td>${SHIFT_LABELS[shiftId]}</td><td>${entries}</td><td>${qty}</td><td>$${amount.toFixed(2)}</td></tr>`;
     }).join('');
 
-    const reportDateText = reportDate.toISOString().slice(0, 10);
+    const reportDateText = schedule.reportDate;
     const subject = `Daily Shift Report - ${reportDateText}`;
     const html = `
       <div style="font-family: Arial, sans-serif;">
@@ -155,7 +168,7 @@ exports.sendDailyShiftReport = onSchedule(
     `;
 
     const attachmentContent = createCsv(logs);
-    await transporter.sendMail({
+    const sent = await transporter.sendMail({
       from: sender,
       to: recipients.join(','),
       subject,
@@ -168,15 +181,23 @@ exports.sendDailyShiftReport = onSchedule(
         },
       ],
     });
+    if (sent.rejected?.length) throw new Error('Some recipients were rejected by the email provider.');
 
     await db.collection('settings').doc('app').set(
       {
         emailReports: {
-          ...emailReports,
           lastSentAt: new Date().toISOString(),
+          lastStatus: 'sent',
         },
       },
       { merge: true }
     );
+    await delivery.update({ status: 'sent', sentAt: new Date().toISOString() });
+    } catch (error) {
+      await delivery.update({ status: 'needs-review' });
+      await db.collection('settings').doc('app').set({ emailReports: { lastStatus: 'needs-review' } }, { merge: true });
+      logger.error('Daily report delivery needs review; automatic retries are suppressed to avoid duplicate emails.');
+      throw error;
+    }
   }
 );

@@ -3,22 +3,35 @@ import { motion as Motion } from 'framer-motion';
 import { Building2, Bell, Tag, Plus, X, Mail, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useState } from 'react';
+import { validateEmailSettings } from '../lib/emailSettings';
+import { isFirebaseConfigured } from '../lib/firebase';
 
 export const SettingsPage = () => {
-  const { settings, setSettings, showToast, clearRevenueData, factoryReset } = useAppContext();
+  const { settings: savedSettings, setSettings: saveSettings, showToast, clearRevenueData, factoryReset } = useAppContext();
+  const [draft, setDraft] = useState(null);
+  const settings = draft || savedSettings;
+  const [saving, setSaving] = useState(false);
   const [newCat, setNewCat] = useState('');
   const [isDeletingRevenue, setIsDeletingRevenue] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      validateEmailSettings(draft.emailReports);
+      if (await saveSettings(draft)) { setDraft(null); showToast('Settings saved'); }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { setSaving(false); }
+  };
 
   const updateSetting = (path, value) => {
-    setSettings(prev => {
+    setDraft(previous => {
+      const prev = previous || savedSettings;
       const updated = { ...prev };
       const keys = path.split('.');
       if (keys.length === 1) updated[keys[0]] = value;
       else if (keys.length === 2) updated[keys[0]] = { ...updated[keys[0]], [keys[1]]: value };
       return updated;
     });
-    showToast('Settings updated', 'success');
   };
 
   const addCategory = () => {
@@ -43,13 +56,14 @@ export const SettingsPage = () => {
   };
 
   return (
-    <div style={{ maxWidth: '720px' }}>
+    <div className="suite-page settings-page" style={{ maxWidth: '900px' }}>
       <div className="app-header">
         <div>
           <h1>Settings</h1>
-          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Changes save automatically in real-time.</p>
+          <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Review your changes, then save them for the team.</p>
+          <button className="btn btn-primary" disabled={!draft || saving} onClick={handleSave}>{saving ? 'Saving…' : draft ? 'Save changes' : 'All changes saved'}</button>
         </div>
-        <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Auto-Save On</span>
+        <span className="badge" style={{ fontSize: '0.7rem' }}>{draft ? 'Unsaved changes' : 'Up to date'}</span>
       </div>
 
       {/* Hotel Details */}
@@ -123,7 +137,7 @@ export const SettingsPage = () => {
           <h3 style={{ margin: 0 }}>Automated Daily Reports</h3>
         </div>
         <div className="input-group">
-          <label>Enable Daily 7:00 AM Report</label>
+          <label>Enable daily report</label>
           <label style={{ position: 'relative', width: '44px', height: '24px', cursor: 'pointer', display: 'inline-block' }}>
             <input
               type="checkbox"
@@ -136,7 +150,7 @@ export const SettingsPage = () => {
             </span>
           </label>
           <p className="text-secondary" style={{ fontSize: '0.78rem', marginTop: '0.4rem' }}>
-            Sends one combined sheet-like report for Morning, Afternoon, and Night shifts at 7:00 AM.
+            Sends one combined sheet-like report for Morning, Afternoon, and Night shifts at the selected time.
           </p>
         </div>
 
@@ -151,14 +165,14 @@ export const SettingsPage = () => {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '0.75rem' }}>
           <div className="input-group" style={{ marginBottom: 0 }}>
             <label>Time</label>
             <input
               type="time"
               className="input"
               value={settings.emailReports?.scheduleTime || '07:00'}
-              onChange={(e) => updateSetting('emailReports.scheduleTime', e.target.value)}
+              onChange={e => updateSetting('emailReports.scheduleTime', e.target.value)}
             />
           </div>
           <div className="input-group" style={{ marginBottom: 0 }}>
@@ -167,13 +181,15 @@ export const SettingsPage = () => {
               type="text"
               className="input"
               value={settings.emailReports?.timeZone || 'America/New_York'}
-              onChange={(e) => updateSetting('emailReports.timeZone', e.target.value)}
+              onChange={e => updateSetting('emailReports.timeZone', e.target.value)}
               placeholder="America/New_York"
             />
           </div>
         </div>
       </Motion.div>
 
+      <p className="ops-notice">Email delivery requires the separate reporting function and SMTP configuration. Once connected, reports run within five minutes after your selected local time and cover the previous calendar day. Changes apply to the next report not yet attempted. Failed or uncertain deliveries require administrator review to avoid duplicates.</p>
+      <p className="text-secondary" role="status">Email delivery: {settings.emailReports?.lastStatus || 'No delivery confirmed'}{settings.emailReports?.lastSentAt ? ` · Last sent ${new Date(settings.emailReports.lastSentAt).toLocaleString()}` : ''}</p>
       {/* Data Cleanup */}
       <Motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: 'white', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', padding: '1.75rem', boxShadow: 'var(--shadow-soft)', marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -181,7 +197,7 @@ export const SettingsPage = () => {
           <h3 style={{ margin: 0, color: 'var(--danger-color)' }}>Data Cleanup</h3>
         </div>
         <p className="text-secondary" style={{ fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-          Careful: These actions are permanent. Use "Factory Reset" to wipe everything clean for your client.
+          Deleting activity is permanent. Export your reports before removing records. Full reset is available only in local demonstration mode.
         </p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -199,10 +215,10 @@ export const SettingsPage = () => {
                 window.location.reload();
               }
             }} 
-            disabled={isResetting}
+            disabled={isResetting || isFirebaseConfigured}
             style={{ alignSelf: 'flex-start' }}
           >
-            <Trash2 size={14} /> {isResetting ? 'Resetting Everything...' : 'Factory Reset (Wipe Entire Website Clean)'}
+            <Trash2 size={14} /> {isResetting ? 'Resetting demo…' : 'Reset local demonstration'}
           </button>
 
           <button 

@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
+import { isFirebaseConfigured, isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
 
 const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purchaseRate: 0, staffRate: 0, guestRate: 0, image: '' };
 
@@ -16,27 +16,32 @@ export const Products = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('name');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState(emptyProduct);
-  const [viewMode, setViewMode] = useState('grid'); // 'table', 'grid', 'list'
+  const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [imageError, setImageError] = useState('');
   const categoryOptions = (settings.categories && settings.categories.length > 0)
     ? settings.categories
     : [form.category || 'General'];
 
-  const filteredItems = items.filter(item => stockFilter === 'All' || (stockFilter === 'Low stock' ? item.stock <= item.minStock : item.stock === 0)).filter(item =>
+  const filteredItems = items.filter(item => categoryFilter === 'All' || item.category === categoryFilter).filter(item => stockFilter === 'All' || (stockFilter === 'Low stock' ? item.stock <= item.minStock : item.stock === 0)).filter(item =>
     item.name.toLowerCase().includes(search.toLowerCase()) ||
     item.category.toLowerCase().includes(search.toLowerCase())
-  );
+  ).sort((a, b) => sortBy === 'stock' ? a.stock - b.stock || a.name.localeCompare(b.name) : a.name.localeCompare(b.name));
 
   const openAdd = () => {
+    setImageError('');
     setEditingItem(null);
     setForm({ ...emptyProduct, category: settings.categories?.[0] || 'General' });
     setShowModal(true);
   };
   const openEdit = (item) => {
+    setImageError('');
     setEditingItem(item);
     setForm({ name: item.name, category: item.category, stock: item.stock, minStock: item.minStock, purchaseRate: item.purchaseRate || 0, staffRate: item.staffRate || 0, guestRate: item.guestRate || 0, image: item.image || '' });
     setShowModal(true);
@@ -69,9 +74,11 @@ export const Products = () => {
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
+    if (e.target.type === 'file') e.target.value = '';
     if (!file || isUploadingImage) return;
-    setIsUploadingImage(true); setUploadProgress(0);
+    setIsUploadingImage(true); setUploadProgress(0); setImageError('');
     try {
+      if (isFirebaseConfigured && !isFirebaseStorageConfigured) throw new Error('Shared image storage is not configured. Contact your administrator.');
       const prepared = await prepareProductImage(file);
       const url = isFirebaseStorageConfigured
         ? await uploadProductImage(prepared.blob, setUploadProgress)
@@ -79,7 +86,12 @@ export const Products = () => {
       if (!url) throw new Error('Upload failed. Please try again.');
       updateForm('image', url); setUploadProgress(100);
       showToast('Image ready');
-    } catch (e) { showToast(e.message || 'Unable to process image.', 'error'); }
+    } catch (e) {
+      const message = e.code === 'storage/unauthorized'
+        ? 'Image upload needs administrator access. Sign in again and retry.'
+        : e.message || 'Unable to process image. Please retry.';
+      setImageError(message); showToast(message, 'error');
+    }
     finally { setIsUploadingImage(false); }
   };
 
@@ -90,7 +102,7 @@ export const Products = () => {
   };
 
   return (
-    <div className="inventory-dashboard" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="suite-page inventory-dashboard" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="app-header">
         <div>
           <h1>Inventory</h1>
@@ -103,12 +115,13 @@ export const Products = () => {
       <div className="ops-stats inventory-overview"><article><span>Products in inventory</span><strong>{items.length}</strong><small>Across {new Set(items.map(i => i.category)).size} categories</small></article><article><span>Needs replenishment</span><strong>{items.filter(i => i.stock <= i.minStock).length}</strong><small>At or below minimum stock</small></article><article><span>Stock purchase value</span><strong>${items.reduce((sum, i) => sum + i.stock * (i.purchaseRate || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>On-hand quantity × purchase rate</small></article></div>
       <details className="ops-card inventory-import"><summary>Import inventory from a file <span>CSV, TSV or JSON · review before saving</span></summary><InventoryImport /></details>
       <div className="inventory-filters" aria-label="Filter inventory by stock">{['All', 'Low stock', 'Out of stock'].map(filter => <button key={filter} className="btn btn-secondary" aria-pressed={stockFilter === filter} onClick={() => setStockFilter(filter)}>{filter}</button>)}<span>{filteredItems.length} products shown</span></div>
+      <div className="suite-toolbar"><label className="ops-field"><span>Category filter</span><select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>{['All', ...new Set(items.map(i => i.category))].map(c => <option key={c}>{c}</option>)}</select></label><label className="ops-field"><span>Sort inventory</span><select value={sortBy} onChange={e => setSortBy(e.target.value)}><option value="name">Name A–Z</option><option value="stock">Lowest stock first</option></select></label></div>
       <AnimatePresence>
         {showModal && (
           <Motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
-            onClick={e => e.target === e.currentTarget && setShowModal(false)}
+            onClick={e => e.target === e.currentTarget && !isUploadingImage && !isSaving && setShowModal(false)}
           >
             <Motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -116,7 +129,7 @@ export const Products = () => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{editingItem ? 'Edit Product' : 'New Product'}</h2>
-                <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
+                <button aria-label="Close product editor" disabled={isUploadingImage || isSaving} onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
               </div>
 
               <div className="input-group">
@@ -141,9 +154,9 @@ export const Products = () => {
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', 
                     background: '#fafafa', cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
                   }}
-                  onClick={() => document.getElementById('imageUpload').click()}
+                  onClick={(event) => { if (!event.target.closest('input')) document.getElementById('imageUpload').click(); }}
                 >
-                  <input type="file" id="imageUpload" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  <input type="file" id="imageUpload" aria-label="Upload product image" disabled={isUploadingImage} accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
                   {form.image ? (
                     <div style={{ position: 'relative', width: '100%', display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <img src={form.image} alt="" style={{ width: '60px', height: '60px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff', border: '1px solid var(--border-color)' }} />
@@ -160,6 +173,8 @@ export const Products = () => {
                     </>
                   )}
                 </div>
+                <button className="btn btn-secondary btn-sm" type="button" disabled={isUploadingImage} onClick={() => document.getElementById('imageUpload').click()}>Choose image</button>
+                {imageError && <p role="alert" style={{ color: 'var(--danger-color, #b91c1c)', fontSize: '0.85rem' }}>{imageError}</p>}
                 {isUploadingImage && (
                   <div style={{ marginTop: '0.65rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
@@ -173,7 +188,7 @@ export const Products = () => {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '0.75rem' }}>
                 <div className="input-group">
                   <label>Current Stock</label>
                   <input type="number" className="input" value={form.stock} onChange={e => updateForm('stock', parseInt(e.target.value) || 0)} min="0" style={{ width: '100%' }} />
@@ -206,7 +221,7 @@ export const Products = () => {
               )}
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button className="btn btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
+                <button className="btn btn-ghost" disabled={isUploadingImage || isSaving} onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
                 <button className="btn btn-primary" onClick={() => void handleSave()} style={{ flex: 1, opacity: form.name.trim() && !isUploadingImage ? 1 : 0.5 }} disabled={!form.name.trim() || isUploadingImage || isSaving}>
                   {isUploadingImage ? 'Uploading Image...' : editingItem ? 'Save Changes' : 'Add Product'}
                 </button>
@@ -222,9 +237,9 @@ export const Products = () => {
           <input type="text" className="input" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', paddingLeft: '2.75rem' }} placeholder="Search products..." />
         </div>
         <div style={{ display: 'flex', gap: '0.2rem', padding: '0.2rem', background: '#f3f4f6', borderRadius: '0.5rem' }}>
-          <button onClick={() => setViewMode('table')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'table' ? 'white' : 'transparent', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'table' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><Table size={16} /></button>
-          <button onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'list' ? 'white' : 'transparent', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'list' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><List size={16} /></button>
-          <button onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'grid' ? 'white' : 'transparent', boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'grid' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><LayoutGrid size={16} /></button>
+          <button aria-label="View inventory as table" onClick={() => setViewMode('table')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'table' ? 'white' : 'transparent', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'table' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><Table size={16} /></button>
+          <button aria-label="View inventory as list" onClick={() => setViewMode('list')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'list' ? 'white' : 'transparent', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'list' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><List size={16} /></button>
+          <button aria-label="View inventory as grid" onClick={() => setViewMode('grid')} style={{ padding: '0.4rem', borderRadius: '0.35rem', background: viewMode === 'grid' ? 'white' : 'transparent', boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'grid' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><LayoutGrid size={16} /></button>
         </div>
       </div>
 
@@ -283,7 +298,7 @@ export const Products = () => {
                 </div>
                 <h3 style={{ fontSize: '1.05rem', margin: '0 0 0.25rem 0', fontWeight: 600 }}>{item.name}</h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.category}</span>
-                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f9fafb', borderRadius: '0.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f9fafb', borderRadius: '0.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '0.5rem' }}>
                   <div><div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Stock</div><div style={{ fontWeight: 600 }}>{item.stock}</div></div>
                   <div><div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Guest Rate</div><div style={{ fontWeight: 600, color: 'var(--accent-dark)' }}>${item.guestRate?.toFixed(2)}</div></div>
                 </div>

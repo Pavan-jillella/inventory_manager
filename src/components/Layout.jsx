@@ -90,7 +90,7 @@ export const Layout = () => {
 
         {/* User Footer */}
         <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-          <div className="flex items-center gap-2">
+          <NavLink to="/profile" className="profile-link flex items-center gap-2" aria-label="Open my profile">
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-gradient)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.8rem' }}>
               {currentUser.name.charAt(0)}
             </div>
@@ -98,7 +98,7 @@ export const Layout = () => {
               <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>{currentUser.name}</div>
               <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{currentUser.role}</div>
             </div>
-          </div>
+          </NavLink>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout} style={{ width: '100%', justifyContent: 'flex-start' }}>
             <LogOut size={15} /> Sign Out
           </button>

@@ -1,3 +1,5 @@
+import { csv, download, localDate } from '../lib/operations';
+import { inRecentDays } from '../lib/reporting';
 import React, { useMemo, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { BarChart3, TrendingUp, Package, Users as UsersIcon, FileDown, Download } from 'lucide-react';
@@ -14,8 +16,7 @@ export const Reports = () => {
     if (period === 'all') return logs;
     const now = new Date();
     return logs.filter(l => {
-      const diffDays = Math.ceil(Math.abs(now - new Date(l.timestamp)) / (1000 * 60 * 60 * 24));
-      return diffDays <= parseInt(period);
+      return inRecentDays(l.timestamp, Number(period), now);
     });
   }, [logs, period]);
 
@@ -58,8 +59,7 @@ export const Reports = () => {
     }
     periodLogs.forEach(l => {
       const d = new Date(l.timestamp);
-      const diff = Math.floor(Math.abs(now - d) / (1000 * 60 * 60 * 24));
-      if (diff < daysToLookBack) {
+      if (inRecentDays(l.timestamp, daysToLookBack, now)) {
         const dayLabel = daysToLookBack <= 7 
           ? d.toLocaleDateString('en-US', { weekday: 'short' })
           : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -69,36 +69,19 @@ export const Reports = () => {
     return Object.values(days);
   }, [periodLogs, period]);
 
-  const exportCurrentReport = () => {
-    let csv = `Report Period:,${period === 'all' ? 'All Time' : 'Last ' + period + ' Days'}\n\n`;
-    
-    // Summary Headers
-    csv += 'TOP ITEMS\nItem Name,Quantity Issued\n';
-    topItems.forEach(i => csv += `"${i.name}",${i.count}\n`);
-    csv += '\nSTAFF USAGE\nStaff Member,Quantity Issued\n';
-    staffUsage.forEach(s => csv += `"${s.name}",${s.count}\n`);
-    csv += '\nCATEGORY BREAKDOWN\nCategory,Quantity Issued\n';
-    categoryUsage.forEach(c => csv += `"${c.name}",${c.value}\n`);
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `inventory_report_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-  };
-
-  const exportFullInventory = () => {
-    const headers = 'Item ID,Name,Category,Current Stock,Min Stock,Purchase Rate,Staff Rate,Guest Rate\n';
-    const rows = items.map(i => `${i.id},"${i.name}","${i.category}",${i.stock},${i.minStock},${i.purchaseRate || 0},${i.staffRate || 0},${i.guestRate || 0}`).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `inventory_snapshot_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-  };
+  const exportCurrentReport = () => download(`inventory_report_${localDate()}.csv`, csv([
+    ['Report period', period === 'all' ? 'All time' : `Last ${period} days`],
+    ['TOP ITEMS'], ['Item name', 'Quantity issued'], ...topItems.map(i => [i.name, i.count]),
+    [], ['STAFF USAGE'], ['Staff member', 'Quantity issued'], ...staffUsage.map(i => [i.name, i.count]),
+    [], ['CATEGORY BREAKDOWN'], ['Category', 'Quantity issued'], ...categoryUsage.map(i => [i.name, i.value])
+  ]));
+  const exportFullInventory = () => download(`inventory_snapshot_${localDate()}.csv`, csv([
+    ['Item ID', 'Name', 'Category', 'Current stock', 'Minimum', 'Purchase rate', 'Staff rate', 'Guest rate'],
+    ...items.map(i => [i.id, i.name, i.category, i.stock, i.minStock, i.purchaseRate || 0, i.staffRate || 0, i.guestRate || 0])
+  ]));
 
   return (
-    <div style={{ paddingBottom: '2rem' }}>
+    <div className="suite-page reports-page">
       <div className="app-header">
         <div>
           <h1>Reports & Export</h1>
@@ -120,7 +103,7 @@ export const Reports = () => {
       </div>
 
       {/* Daily Usage Bar Chart */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <BarChart3 size={18} style={{ color: 'var(--accent-color)' }} /> Weekly Usage
@@ -168,7 +151,7 @@ export const Reports = () => {
       </div>
 
       {/* Top Items and Staff tables */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
         <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
           <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <TrendingUp size={18} style={{ color: 'var(--accent-color)' }} /> Most Issued Items

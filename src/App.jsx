@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { Toast } from './components/Toast';
@@ -7,16 +7,20 @@ import { Operations } from './pages/Operations';
 import { Login } from './pages/Login';
 import { IssueItem } from './pages/IssueItem';
 import { RecentActivity } from './pages/RecentActivity';
-import { Dashboard } from './pages/Dashboard';
 import { Products } from './pages/Products';
 import { Staff } from './pages/Staff';
 import { Alerts } from './pages/Alerts';
-import { Reports } from './pages/Reports';
-import { Revenue } from './pages/Revenue';
 import { SettingsPage } from './pages/Settings';
+import { Profile } from './pages/Profile';
+import './pages/Suite.css';
+import './pages/Operations.css';
+
+const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
+const Reports = lazy(() => import('./pages/Reports').then(module => ({ default: module.Reports })));
+const Revenue = lazy(() => import('./pages/Revenue').then(module => ({ default: module.Revenue })));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { currentUser, authReady } = useAppContext();
+  const { currentUser, authReady, cloudStatus } = useAppContext();
   if (!authReady) return <p role="status">Verifying staff access…</p>;
 
   if (!currentUser) {
@@ -26,6 +30,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
     return <Navigate to="/issue-item" replace />;
   }
+  if (cloudStatus === 'error') return <div className="ops-card" role="alert"><h2>Shared records are unavailable</h2><p>Check your connection and staff access, then retry. Your saved cloud records have not been deleted.</p><button className="btn btn-primary" onClick={() => window.location.reload()}>Retry connection</button></div>;
+  if (cloudStatus !== 'ready') return <p role="status">Loading shared hotel records…</p>;
 
   return children;
 };
@@ -35,6 +41,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route element={<Layout />}>
+        <Route path="/profile" element={<ProtectedRoute allowedRoles={['Front Desk', 'Admin']}><Profile /></ProtectedRoute>} />
         {/* Front Desk & Admin */}
         <Route path="/issue-item" element={
           <ProtectedRoute allowedRoles={['Front Desk', 'Admin']}>
@@ -94,7 +101,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <AppRoutes />
+        <Suspense fallback={<p role="status" style={{ padding: '2rem' }}>Loading page…</p>}><AppRoutes /></Suspense>
         <Toast />
       </AppProvider>
     </BrowserRouter>

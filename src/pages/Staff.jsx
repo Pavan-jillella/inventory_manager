@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Shield, User, Lock, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { isFirebaseConfigured } from '../lib/firebase';
 
 export const Staff = () => {
-  const { users, addStaff, removeStaff } = useAppContext();
+  const { users, addStaff, removeStaff, currentUser, renameStaff } = useAppContext();
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
@@ -19,8 +23,13 @@ export const Staff = () => {
   );
 
   const handleAdd = async () => {
-    if (!newName.trim() || !newUsername.trim() || !newPassword.trim()) return;
-    const success = await addStaff(newName.trim(), newUsername.trim(), newPassword.trim(), newRole);
+    if (saving) return;
+    if (!newName.trim() || !newUsername.trim() || !newPassword) { setError('Complete all fields.'); return; }
+    if (isFirebaseConfigured && ((!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(newUsername) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUsername)) || newPassword.length < 12)) { setError('Use a username of 3–32 letters, numbers, dots, underscores or hyphens (or an email), and a password of at least 12 characters.'); return; }
+    setError(''); setSaving(true);
+    let success;
+    try { success = await addStaff(newName.trim(), newUsername.trim(), newPassword, newRole); }
+    finally { setSaving(false); }
     if (success) {
       setNewName('');
       setNewUsername('');
@@ -37,7 +46,7 @@ export const Staff = () => {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="suite-page staff-page">
       <div className="app-header">
         <div>
           <h1>Staff</h1>
@@ -48,6 +57,7 @@ export const Staff = () => {
         </button>
       </div>
 
+      {editing && <section className="suite-panel"><h2>Edit staff account</h2><form className="ops-form" onSubmit={async e => { e.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await renameStaff(editing.id, editing.name, editing.password); setEditing(null); } catch (e) { setError(e.message || 'Unable to save staff profile.'); } finally { setSaving(false); } }}><label className="ops-field"><span>Staff display name</span><input required maxLength={100} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label><label className="ops-field"><span>New password (optional)</span><input type="password" autoComplete="new-password" minLength={12} value={editing.password || ''} onChange={e => setEditing({ ...editing, password: e.target.value })} placeholder="Leave blank to keep the current password" /></label><div className="suite-toolbar"><button className="btn btn-primary" disabled={saving}>Save staff changes</button><button className="btn btn-outline" type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel edit</button></div>{error && <p role="alert" className="ops-error">{error}</p>}</form></section>}
       {/* Add Staff Modal */}
       <AnimatePresence>
         {showAdd && (
@@ -60,7 +70,7 @@ export const Staff = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '2rem', width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
+              style={{ background: 'white', borderRadius: 'var(--radius-lg)', padding: '2rem', width: '100%', maxWidth: '440px', maxHeight: '90dvh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>New Staff Member</h2>
@@ -68,18 +78,18 @@ export const Staff = () => {
               </div>
 
               <div className="input-group">
-                <label>Full Name</label>
+                <label htmlFor="staff-name">Full Name</label>
                 <div style={{ position: 'relative' }}>
                   <User size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Sarah Night" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
+                  <input type="text" className="input" id="staff-name" maxLength={100} value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Sarah Night" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
                 </div>
               </div>
 
               <div className="input-group">
-                <label>Email / demo username</label>
+                <label htmlFor="staff-email">Username or email</label>
                 <div style={{ position: 'relative' }}>
                   <User size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input" value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} placeholder="e.g. sarah" style={{ width: '100%', paddingLeft: '2.5rem' }} />
+                  <input type="text" className="input" id="staff-email" autoComplete="off" value={newUsername} onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))} placeholder="e.g. frontdesk1" style={{ width: '100%', paddingLeft: '2.5rem' }} />
                 </div>
               </div>
 
@@ -87,27 +97,28 @@ export const Staff = () => {
                 <label>Password</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input type="text" className="input" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="e.g. sarah123" style={{ width: '100%', paddingLeft: '2.5rem' }} />
+                  <input type="password" aria-label="New staff password" autoComplete="new-password" className="input" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="At least 12 characters" style={{ width: '100%', paddingLeft: '2.5rem' }} />
                 </div>
               </div>
 
               <div className="input-group">
-                <label>Role</label>
-                <select className="select" value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: '100%' }}>
+                <label htmlFor="staff-role">Role</label>
+                <select className="select" id="staff-role" value={newRole} onChange={e => setNewRole(e.target.value)} style={{ width: '100%' }}>
                   <option value="Front Desk">Front Desk</option>
                   <option value="Admin">Admin</option>
                 </select>
               </div>
 
+              {error && <p role="alert" className="ops-error">{error}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button className="btn btn-ghost" onClick={() => setShowAdd(false)} style={{ flex: 1 }}>Cancel</button>
                 <button
                   className="btn btn-primary"
                   onClick={handleAdd}
                   style={{ flex: 1, opacity: newName.trim() && newUsername.trim() && newPassword.trim() ? 1 : 0.5 }}
-                  disabled={!newName.trim() || !newUsername.trim() || !newPassword.trim()}
+                  disabled={saving || !newName.trim() || !newUsername.trim() || !newPassword}
                 >
-                  <Plus size={16} /> Create Staff
+                  <Plus size={16} /> {saving ? 'Creating…' : 'Create Staff'}
                 </button>
               </div>
             </Motion.div>
@@ -169,13 +180,16 @@ export const Staff = () => {
                       <span style={{ fontWeight: user.role === 'Admin' ? 600 : 400, color: user.role === 'Admin' ? 'var(--accent-dark)' : 'var(--text-secondary)' }}>{user.role}</span>
                     </div>
                   </td>
-                  <td><span className="badge badge-success">Active</span></td>
+                  <td><span className="badge">{user.id === currentUser.id ? 'Signed in' : 'Staff profile'}</span></td>
                   <td style={{ textAlign: 'right' }}>
+                    <button className="btn btn-ghost btn-sm" disabled={saving} onClick={() => { setError(''); setEditing({ id: user.id, name: user.name }); }}>Edit account</button>
                     <button
                       className="btn btn-ghost btn-sm"
                       style={{ padding: '0.4rem', color: 'var(--danger-color)' }}
                       onClick={() => handleDelete(user.id)}
                       title="Remove Staff"
+                      aria-label={`Remove ${user.name}`}
+                      disabled={saving || user.id === currentUser.id}
                     >
                       <Trash2 size={14} />
                     </button>
