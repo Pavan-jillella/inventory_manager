@@ -2,6 +2,8 @@
 
 Inventory and issue-tracking app for hotel front desk and admin operations.
 
+See [PRODUCTION.md](PRODUCTION.md) for the verified deployment state, backup configuration, and remaining email/staff acceptance steps.
+
 ## Stack
 
 - React + Vite
