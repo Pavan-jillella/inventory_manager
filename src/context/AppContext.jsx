@@ -32,6 +32,7 @@ const defaultEmailSettings = {
 
 export const AppProvider = ({ children }) => {
   const [authReady, setAuthReady] = useState(!isFirebaseConfigured);
+  const [cloudLoad, setCloudLoad] = useState({ uid: null, status: 'loading' });
   const [currentUser, setCurrentUser] = useState(() => {
     if (isFirebaseConfigured || !import.meta.env.DEV) return null;
     try {
@@ -41,6 +42,7 @@ export const AppProvider = ({ children }) => {
     return null;
   });
   const [items, setItems] = useState(() => {
+    if (isFirebaseConfigured) return [];
     try {
       const saved = localStorage.getItem('cis_items');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
@@ -48,6 +50,7 @@ export const AppProvider = ({ children }) => {
     return MOCK_ITEMS;
   });
   const [logs, setLogs] = useState(() => {
+    if (isFirebaseConfigured) return [];
     try {
       const saved = localStorage.getItem('cis_logs');
       if (saved && saved !== 'undefined' && saved !== 'null') return JSON.parse(saved);
@@ -74,7 +77,7 @@ export const AppProvider = ({ children }) => {
   });
   const [settings, setSettingsState] = useState(() => {
     try {
-      const saved = localStorage.getItem('cis_settings');
+      const saved = !isFirebaseConfigured && localStorage.getItem('cis_settings');
       if (saved && saved !== 'undefined' && saved !== 'null') {
         const parsed = JSON.parse(saved);
         return {
@@ -117,6 +120,7 @@ export const AppProvider = ({ children }) => {
   // Initial Firebase Fetch (if configured)
   useEffect(() => {
     if (!isFirebaseConfigured || !currentUser) return;
+    let active = true;
     const fetchFirebaseData = async () => {
       try {
         const [dbItems, dbUsers, dbLogs, dbSettings] = await Promise.all([
@@ -125,12 +129,11 @@ export const AppProvider = ({ children }) => {
           readCollection('logs'),
           readSettings(),
         ]);
+        if (!active) return;
 
         setItems(dbItems);
 
-        if (dbUsers.length > 0) {
-          setUsers(dbUsers.map((u) => ({ ...u, username: normalizeUsername(u.username) })));
-        }
+        setUsers(dbUsers.map((u) => ({ ...u, username: normalizeUsername(u.username) })));
 
         if (dbLogs.length > 0) {
           setLogs(dbLogs.sort((a, b) => {
@@ -151,7 +154,10 @@ export const AppProvider = ({ children }) => {
             emailReports: { ...defaultEmailSettings, ...(dbSettings.emailReports || {}) },
           });
         }
+        setCloudLoad({ uid: currentUser.id, status: 'ready' });
       } catch (e) {
+        if (!active) return;
+        setCloudLoad({ uid: currentUser.id, status: 'error' });
         console.error('Firebase fetch error:', e);
       }
     };
@@ -159,7 +165,7 @@ export const AppProvider = ({ children }) => {
     
     // AUTO-REFRESH: Keep devices in sync by fetching fresh data every 45 seconds
     const interval = setInterval(fetchFirebaseData, 45000);
-    return () => clearInterval(interval);
+    return () => { active = false; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
@@ -213,7 +219,14 @@ export const AppProvider = ({ children }) => {
     if (user) { setCurrentUser(user); return user; }
     return null;
   };
-  const logout = async () => { if (auth) await signOut(auth); setCurrentUser(null); };
+  const logout = async () => {
+    if (auth) {
+      await signOut(auth);
+      setItems([]); setLogs([]); setUsers([]);
+      setCloudLoad({ uid: null, status: 'loading' });
+    }
+    setCurrentUser(null);
+  };
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -324,38 +337,23 @@ export const AppProvider = ({ children }) => {
   };
 
   const clearRevenueData = async () => {
-    setLogs([]);
-    if (isFirebaseConfigured) {
-      const logIds = logs.map(l => l.id);
-      await deleteManyDocsByIds('logs', logIds);
-    }
-    showToast('Revenue logs cleared');
+    try {
+      if (isFirebaseConfigured) await deleteManyDocsByIds('logs', logs.map(l => l.id));
+      setLogs([]);
+      showToast('Revenue logs cleared');
+    } catch { showToast('Some records could not be deleted. Reload to check the current records.', 'error'); }
   };
 
   const factoryReset = async () => {
+    if (isFirebaseConfigured) {
+      showToast('Full reset is available only in local demonstration mode. Cloud records and staff accounts are preserved.', 'error');
+      return;
+    }
     setItems([]);
     setLogs([]);
     setUsers(DEFAULT_USERS);
     
-    if (isFirebaseConfigured) {
-      try {
-        const [dbItems, dbLogs, dbUsers] = await Promise.all([
-          readCollection('items'),
-          readCollection('logs'),
-          readCollection('users'),
-        ]);
-        
-        await Promise.all([
-          deleteManyDocsByIds('items', dbItems.map(i => i.id)),
-          deleteManyDocsByIds('logs', dbLogs.map(l => l.id)),
-          deleteManyDocsByIds('users', dbUsers.filter(u => u.username !== 'admin' && u.username !== 'desk').map(u => u.id))
-        ]);
-      } catch (e) {
-        console.error('Cloud reset failed:', e);
-      }
-    }
-    
-    localStorage.clear();
+    for (const key of ['cis_items', 'cis_logs', 'cis_users', 'cis_settings', 'cis_currentUser', 'cis_operations']) localStorage.removeItem(key);
     showToast('Platform reset to original state', 'success');
   };
 
@@ -377,7 +375,7 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      currentUser, authReady, items, logs, users, settings, toast,
+      currentUser, authReady, cloudStatus: !isFirebaseConfigured ? 'ready' : cloudLoad.uid === currentUser?.id ? cloudLoad.status : 'loading', items, logs, users, settings, toast,
       login, logout, showToast, updateProfile,
       addStaff, removeStaff, renameStaff,
       addItem, updateItem, deleteItem, importItems,

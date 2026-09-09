@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, X, Package, LayoutGrid, List, Table, UploadCloud } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
+import { isFirebaseConfigured, isFirebaseStorageConfigured, uploadProductImage } from '../lib/firebase';
 
 const emptyProduct = { name: '', category: 'Drinks', stock: 0, minStock: 5, purchaseRate: 0, staffRate: 0, guestRate: 0, image: '' };
 
@@ -24,6 +24,7 @@ export const Products = () => {
   const [viewMode, setViewMode] = useState('table'); // 'table', 'grid', 'list'
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [imageError, setImageError] = useState('');
   const categoryOptions = (settings.categories && settings.categories.length > 0)
     ? settings.categories
     : [form.category || 'General'];
@@ -34,11 +35,13 @@ export const Products = () => {
   ).sort((a, b) => sortBy === 'stock' ? a.stock - b.stock || a.name.localeCompare(b.name) : a.name.localeCompare(b.name));
 
   const openAdd = () => {
+    setImageError('');
     setEditingItem(null);
     setForm({ ...emptyProduct, category: settings.categories?.[0] || 'General' });
     setShowModal(true);
   };
   const openEdit = (item) => {
+    setImageError('');
     setEditingItem(item);
     setForm({ name: item.name, category: item.category, stock: item.stock, minStock: item.minStock, purchaseRate: item.purchaseRate || 0, staffRate: item.staffRate || 0, guestRate: item.guestRate || 0, image: item.image || '' });
     setShowModal(true);
@@ -71,9 +74,11 @@ export const Products = () => {
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0] || e.dataTransfer?.files?.[0];
+    if (e.target.type === 'file') e.target.value = '';
     if (!file || isUploadingImage) return;
-    setIsUploadingImage(true); setUploadProgress(0);
+    setIsUploadingImage(true); setUploadProgress(0); setImageError('');
     try {
+      if (isFirebaseConfigured && !isFirebaseStorageConfigured) throw new Error('Shared image storage is not configured. Contact your administrator.');
       const prepared = await prepareProductImage(file);
       const url = isFirebaseStorageConfigured
         ? await uploadProductImage(prepared.blob, setUploadProgress)
@@ -81,7 +86,12 @@ export const Products = () => {
       if (!url) throw new Error('Upload failed. Please try again.');
       updateForm('image', url); setUploadProgress(100);
       showToast('Image ready');
-    } catch (e) { showToast(e.message || 'Unable to process image.', 'error'); }
+    } catch (e) {
+      const message = e.code === 'storage/unauthorized'
+        ? 'Image upload needs administrator access. Sign in again and retry.'
+        : e.message || 'Unable to process image. Please retry.';
+      setImageError(message); showToast(message, 'error');
+    }
     finally { setIsUploadingImage(false); }
   };
 
@@ -111,7 +121,7 @@ export const Products = () => {
           <Motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)' }}
-            onClick={e => e.target === e.currentTarget && setShowModal(false)}
+            onClick={e => e.target === e.currentTarget && !isUploadingImage && !isSaving && setShowModal(false)}
           >
             <Motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -119,7 +129,7 @@ export const Products = () => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{editingItem ? 'Edit Product' : 'New Product'}</h2>
-                <button onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
+                <button aria-label="Close product editor" disabled={isUploadingImage || isSaving} onClick={() => setShowModal(false)} style={{ color: 'var(--text-muted)' }}><X size={20} /></button>
               </div>
 
               <div className="input-group">
@@ -146,7 +156,7 @@ export const Products = () => {
                   }}
                   onClick={(event) => { if (!event.target.closest('input')) document.getElementById('imageUpload').click(); }}
                 >
-                  <input type="file" id="imageUpload" aria-label="Upload product image" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
+                  <input type="file" id="imageUpload" aria-label="Upload product image" disabled={isUploadingImage} accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={handleImageUpload} />
                   {form.image ? (
                     <div style={{ position: 'relative', width: '100%', display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <img src={form.image} alt="" style={{ width: '60px', height: '60px', borderRadius: '0.5rem', objectFit: 'contain', background: '#fff', border: '1px solid var(--border-color)' }} />
@@ -163,6 +173,8 @@ export const Products = () => {
                     </>
                   )}
                 </div>
+                <button className="btn btn-secondary btn-sm" type="button" disabled={isUploadingImage} onClick={() => document.getElementById('imageUpload').click()}>Choose image</button>
+                {imageError && <p role="alert" style={{ color: 'var(--danger-color, #b91c1c)', fontSize: '0.85rem' }}>{imageError}</p>}
                 {isUploadingImage && (
                   <div style={{ marginTop: '0.65rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
@@ -209,7 +221,7 @@ export const Products = () => {
               )}
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button className="btn btn-ghost" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
+                <button className="btn btn-ghost" disabled={isUploadingImage || isSaving} onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
                 <button className="btn btn-primary" onClick={() => void handleSave()} style={{ flex: 1, opacity: form.name.trim() && !isUploadingImage ? 1 : 0.5 }} disabled={!form.name.trim() || isUploadingImage || isSaving}>
                   {isUploadingImage ? 'Uploading Image...' : editingItem ? 'Save Changes' : 'Add Product'}
                 </button>

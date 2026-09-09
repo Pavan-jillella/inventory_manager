@@ -3,6 +3,8 @@ import { motion as Motion } from 'framer-motion';
 import { Building2, Bell, Tag, Plus, X, Mail, Trash2 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useState } from 'react';
+import { validateEmailSettings } from '../lib/emailSettings';
+import { isFirebaseConfigured } from '../lib/firebase';
 
 export const SettingsPage = () => {
   const { settings: savedSettings, setSettings: saveSettings, showToast, clearRevenueData, factoryReset } = useAppContext();
@@ -12,6 +14,14 @@ export const SettingsPage = () => {
   const [newCat, setNewCat] = useState('');
   const [isDeletingRevenue, setIsDeletingRevenue] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      validateEmailSettings(draft.emailReports);
+      if (await saveSettings(draft)) { setDraft(null); showToast('Settings saved'); }
+    } catch (error) { showToast(error.message, 'error'); }
+    finally { setSaving(false); }
+  };
 
   const updateSetting = (path, value) => {
     setDraft(previous => {
@@ -51,7 +61,7 @@ export const SettingsPage = () => {
         <div>
           <h1>Settings</h1>
           <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Review your changes, then save them for the team.</p>
-          <button className="btn btn-primary" disabled={!draft || saving} onClick={async () => { setSaving(true); try { if (await saveSettings(draft)) { setDraft(null); showToast('Settings saved'); } } finally { setSaving(false); } }}>{saving ? 'Saving…' : draft ? 'Save changes' : 'All changes saved'}</button>
+          <button className="btn btn-primary" disabled={!draft || saving} onClick={handleSave}>{saving ? 'Saving…' : draft ? 'Save changes' : 'All changes saved'}</button>
         </div>
         <span className="badge" style={{ fontSize: '0.7rem' }}>{draft ? 'Unsaved changes' : 'Up to date'}</span>
       </div>
@@ -187,7 +197,7 @@ export const SettingsPage = () => {
           <h3 style={{ margin: 0, color: 'var(--danger-color)' }}>Data Cleanup</h3>
         </div>
         <p className="text-secondary" style={{ fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-          Careful: These actions are permanent. Use "Factory Reset" to wipe everything clean for your client.
+          Deleting activity is permanent. Export your reports before removing records. Full reset is available only in local demonstration mode.
         </p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -205,10 +215,10 @@ export const SettingsPage = () => {
                 window.location.reload();
               }
             }} 
-            disabled={isResetting}
+            disabled={isResetting || isFirebaseConfigured}
             style={{ alignSelf: 'flex-start' }}
           >
-            <Trash2 size={14} /> {isResetting ? 'Resetting Everything...' : 'Factory Reset (Wipe Entire Website Clean)'}
+            <Trash2 size={14} /> {isResetting ? 'Resetting demo…' : 'Reset local demonstration'}
           </button>
 
           <button 

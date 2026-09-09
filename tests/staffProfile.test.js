@@ -6,7 +6,9 @@ import vm from 'node:vm';
 function backend(role = 'Front Desk') {
   const writes = [];
   const context = { exports: {}, require(name) {
-    if (name === 'firebase-admin') return { initializeApp() {}, firestore: () => ({ collection: () => ({ doc: id => ({ get: async () => ({ exists: true, data: () => ({ role }), ref: { update: async value => writes.push({ id, ...value }) } }), update: async value => writes.push({ id, ...value }) }) }) }) };
+    if (name === 'firebase-admin/app') return { initializeApp() {} };
+    if (name === 'firebase-admin/firestore') return { getFirestore: () => ({ collection: () => ({ doc: id => ({ get: async () => ({ exists: true, data: () => ({ role }), ref: { update: async value => writes.push({ id, ...value }) } }), update: async value => writes.push({ id, ...value }) }) }) }) };
+    if (name === 'firebase-admin/auth') return { getAuth() { throw new Error('Unexpected credential change'); } };
     return { onCall: fn => fn, HttpsError: class extends Error { constructor(code, message) { super(message); this.code = code; } } };
   } };
   vm.runInNewContext(readFileSync(new URL('../functions-staff/index.js', import.meta.url), 'utf8'), context);

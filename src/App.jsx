@@ -20,7 +20,7 @@ const Reports = lazy(() => import('./pages/Reports').then(module => ({ default: 
 const Revenue = lazy(() => import('./pages/Revenue').then(module => ({ default: module.Revenue })));
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { currentUser, authReady } = useAppContext();
+  const { currentUser, authReady, cloudStatus } = useAppContext();
   if (!authReady) return <p role="status">Verifying staff access…</p>;
 
   if (!currentUser) {
@@ -30,6 +30,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (allowedRoles && !allowedRoles.includes(currentUser.role)) {
     return <Navigate to="/issue-item" replace />;
   }
+  if (cloudStatus === 'error') return <div className="ops-card" role="alert"><h2>Shared records are unavailable</h2><p>Check your connection and staff access, then retry. Your saved cloud records have not been deleted.</p><button className="btn btn-primary" onClick={() => window.location.reload()}>Retry connection</button></div>;
+  if (cloudStatus !== 'ready') return <p role="status">Loading shared hotel records…</p>;
 
   return children;
 };

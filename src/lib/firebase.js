@@ -40,6 +40,7 @@ export const manageCloudStaff = async (data) => {
 export const auth = app ? getAuth(app) : null;
 export const db = app ? getFirestore(app) : null;
 export const storage = isFirebaseStorageConfigured ? getStorage(app) : null;
+if (storage) storage.maxUploadRetryTime = 60000;
 
 export const issueCloudItems = (cart, details) => runTransaction(db, async transaction => {
   const snapshots = await Promise.all(cart.map(entry => transaction.get(doc(db, 'items', String(entry.item.id)))));

@@ -1,0 +1,10 @@
+.env*
+*.local
+functions/
+functions-staff/
+scripts/
+tests/
+scratch/
+firebase*.json
+*.rules
+*.log

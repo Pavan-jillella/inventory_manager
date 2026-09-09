@@ -1,12 +1,13 @@
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const nodemailer = require('nodemailer');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { defineSecret } = require('firebase-functions/params');
 const { reportSchedule, localDay } = require('./reportSchedule');
 
-admin.initializeApp();
-const db = admin.firestore();
+initializeApp();
+const db = getFirestore();
 const smtpHost = defineSecret('REPORT_EMAIL_SMTP_HOST');
 const smtpPort = defineSecret('REPORT_EMAIL_SMTP_PORT');
 const smtpUser = defineSecret('REPORT_EMAIL_SMTP_USER');
@@ -81,6 +82,9 @@ const createTransporter = () => {
     host,
     port,
     secure: port === 465,
+    requireTLS: port !== 465,
+    connectionTimeout: 30000,
+    socketTimeout: 60000,
     auth: { user, pass },
   });
 };
@@ -90,6 +94,8 @@ exports.sendDailyShiftReport = onSchedule(
     schedule: 'every 5 minutes',
     timeZone: 'America/New_York',
     memory: '256MiB',
+    maxInstances: 1,
+    timeoutSeconds: 180,
     secrets: [smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom],
   },
   async () => {
@@ -162,7 +168,7 @@ exports.sendDailyShiftReport = onSchedule(
     `;
 
     const attachmentContent = createCsv(logs);
-    await transporter.sendMail({
+    const sent = await transporter.sendMail({
       from: sender,
       to: recipients.join(','),
       subject,
@@ -175,6 +181,7 @@ exports.sendDailyShiftReport = onSchedule(
         },
       ],
     });
+    if (sent.rejected?.length) throw new Error('Some recipients were rejected by the email provider.');
 
     await db.collection('settings').doc('app').set(
       {
