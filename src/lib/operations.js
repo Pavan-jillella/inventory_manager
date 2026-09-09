@@ -1,3 +1,4 @@
+import { validateReceiptRecord } from './receiptValidation.js';
 export const localDate = () => {
   const date = new Date();
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -8,7 +9,7 @@ export function number(value, label, minimum = 0) {
   return Number(value);
 }
 export function applyOperation(state, action) {
-  const next = structuredClone(state);
+  const next = { ...emptyOperations(), ...structuredClone(state) };
   const record = { ...action.record };
   if (!record.id) throw new Error('Missing record ID.');
   if (action.type === 'supply') {
@@ -24,10 +25,14 @@ export function applyOperation(state, action) {
     const item = next.supplies.find(i => i.id === record.itemId);
     if (!item) throw new Error('Select an inventory item.');
     record.quantity = number(record.quantity, 'Quantity', 0.01);
-    if (!['Used', 'Received'].includes(record.kind)) throw new Error('Invalid inventory action.');
-    if (record.kind === 'Used' && item.stock < record.quantity) throw new Error(`Only ${item.stock} ${item.unit} available.`);
-    item.stock = Math.round((item.stock + (record.kind === 'Used' ? -record.quantity : record.quantity)) * 100) / 100;
-    next.movements.unshift({ ...record, department: item.department, itemName: item.name });
+    if (!(item.department === 'Breakfast' ? ['Used', 'Served', 'Wasted', 'Received'] : ['Used', 'Received']).includes(record.kind)) throw new Error('Invalid inventory action.');
+    if (record.kind !== 'Received' && item.stock < record.quantity) throw new Error(`Only ${item.stock} ${item.unit} available.`);
+    item.stock = Math.round((item.stock + (record.kind !== 'Received' ? -record.quantity : record.quantity)) * 100) / 100;
+    next.movements.unshift({ ...record, department: item.department, itemName: item.name, unit: item.unit });
+  } else if (action.type === 'breakfast-guests') {
+    record.count = number(record.count, 'Guest count');
+    if (!Number.isInteger(record.count)) throw new Error('Guest count must be a whole number.');
+    next.breakfastGuests = [...(next.breakfastGuests || []).filter(row => row.date !== record.date), record];
   } else if (action.type === 'trip-delete' || action.type === 'trip-restore') {
     const trip = next.trips.find(i => i.id === record.id && i.date === record.date);
     if (!trip) throw new Error('Trip no longer exists for this date.');
@@ -43,6 +48,7 @@ export function applyOperation(state, action) {
     if (record.end !== '' && record.end < record.start) throw new Error('Ending miles cannot be below starting miles.');
     next.mileage = [...next.mileage.filter(i => !(i.date === record.date && i.vehicle === record.vehicle)), record];
   } else if (action.type === 'expense') {
+    if (record.receipt) record.receipt = validateReceiptRecord(record.receipt);
     record.amount = number(record.amount, 'Amount', 0.01);
     if (!record.vendor?.trim() || !record.notes?.trim()) throw new Error('Vendor and purpose are required.');
     if (record.card && !/^\d{4}$/.test(record.card)) throw new Error('Enter only the last four card digits.');

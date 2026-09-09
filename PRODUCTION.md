@@ -2,6 +2,18 @@
 
 Website: https://cisshop.vercel.app
 
+## Analytics and operations additions — September 9
+
+- Inventory product photos/names open a detail window with larger imagery, 30-day issue charts, recent product edits and recorded stock transitions. Historical edits from before this release cannot be reconstructed. Product edit history is append-only from the client; administrators can read it.
+- Restocking estimates require at least seven calendar days of observation and issues on three different days within the latest 30 days. Estimates use recorded issues only and are not demand guarantees.
+- Dashboard Today/7-day/30-day/custom filters apply to sales, issue counts and shift performance, with equal-length previous-period comparisons. Custom dates use Apply dates. Current-stock cards remain explicitly labeled as current snapshots. Reporting dates follow the browser's local time.
+- Breakfast supports Served and Wasted stock deductions, daily guest counts, per-item weekly charts and served quantity per guest. Older Used entries remain unclassified; quantities from different items are not combined.
+- Shuttle includes a daily timeline, weekly mileage and missing/open odometer reminders. Missing completed readings appear as chart gaps.
+- Card expenses support JPEG/PNG/WebP/PDF receipts up to 5 MB, monthly administrator budgets and category/vendor charts. Receipts use authenticated SDK downloads rather than public download links. See [Firebase's download documentation](https://firebase.google.com/docs/storage/web/download-files#download_data_directly_from_the_sdk).
+- Product edits preserve stock changed concurrently on another device unless a stock correction is explicitly made from the current value.
+
+Validation: 56 automated tests, lint and production build; browser checks for product details, mobile dashboard layout, preset/custom comparison dates, breakfast served/waste stock changes, guest counts and local budget saving. Firestore and Storage rules compiled and were deployed after explicit approval of the access scope. The bucket already permits browser GET requests. A live receipt upload/download round trip and Front Desk multi-device writes remain acceptance checks; no real hotel expense was created for testing. Build output still includes a large-chunk performance warning. Firebase emulator rule tests were unavailable because this machine has no Java runtime.
+
 ## Released
 
 - Updated operations, inventory, issue-item, activity, and administration dashboards.

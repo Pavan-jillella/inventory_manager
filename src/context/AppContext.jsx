@@ -5,10 +5,12 @@ import { auth, db } from '../lib/firebase';
 import { parseInventory } from '../lib/operations';
 import { staffLoginEmail } from '../lib/staffIdentity';
 import { planIssue, planLogChange } from '../lib/inventory';
+import { productChange } from '../lib/productHistory';
 import { staffAccessError, signInMessage } from '../lib/authMessages';
 import { MOCK_ITEMS, DEFAULT_USERS, getCurrentShift, CATEGORIES } from '../data/mockData';
 import {
   isFirebaseConfigured, manageCloudStaff,
+  updateCloudProduct,
   issueCloudItems, changeCloudLog,
   readCollection,
   upsertManyDocs,
@@ -265,12 +267,18 @@ export const AppProvider = ({ children }) => {
     return true;
   };
 
-  const updateItem = async (id, updates) => {
-    if (isFirebaseConfigured) {
-      const current = items.find(i => i.id === id);
-      if (current) await upsertDocById('items', id, { ...current, ...updates });
+  const updateItem = async (id, updates, original) => {
+    const current = items.find(i => i.id === id);
+    if (!current) throw new Error('Product no longer exists.');
+    let updated;
+    if (isFirebaseConfigured) updated = await updateCloudProduct(id, updates, original || current, currentUser);
+    else {
+      const history = JSON.parse(localStorage.getItem('cis_item_history') || '[]');
+      const entry = productChange(current, updates, currentUser);
+      if (entry.changes.length) localStorage.setItem('cis_item_history', JSON.stringify([entry, ...history]));
+      updated = { ...current, ...updates };
     }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    setItems(prev => prev.map(i => i.id === id ? updated : i));
     showToast('Product updated');
   };
 

@@ -2,6 +2,12 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function admin() { return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'Admin'; }
+    function staff() { return request.auth != null && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Front Desk']; }
+    match /receipts/{uid}/{receipt} {
+      allow read: if staff();
+      allow create: if staff() && request.auth.uid == uid && request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024 && request.resource.contentType.matches('(image/(jpeg|png|webp)|application/pdf)');
+      allow delete: if staff() && (request.auth.uid == uid || admin());
+    }
     match /products/{image} {
       allow read: if request.auth != null;
       allow create, update: if admin() && request.resource.size < 2 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp)');

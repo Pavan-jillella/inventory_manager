@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { planIssue, planLogChange } from './inventory';
 import { staffRecord } from './staffRecords';
+import { productChange, productPatch } from './productHistory';
 import {
   getFirestore,
   collection,
@@ -70,6 +71,18 @@ export const readCollection = async (name) => {
   const snapshot = await getDocs(collection(db, name));
   return snapshot.docs.map((d) => name === 'users' ? staffRecord(d.id, d.data()) : d.data());
 };
+
+export const updateCloudProduct = async (id, updates, original, staff) => runTransaction(db, async tx => {
+  const itemRef = doc(db, 'items', String(id));
+  const snapshot = await tx.get(itemRef);
+  if (!snapshot.exists()) throw new Error('This product was removed. Refresh inventory.');
+  const current = { ...snapshot.data(), id };
+  const patch = productPatch(current, updates, original);
+  const audit = productChange(current, patch, staff);
+  tx.update(itemRef, patch);
+  if (audit.changes.length) tx.set(doc(db, 'item_history', audit.id), audit);
+  return { ...current, ...patch };
+});
 
 export const upsertManyDocs = async (name, docs, idField = 'id') => {
   if (!db || !Array.isArray(docs) || docs.length === 0) return;

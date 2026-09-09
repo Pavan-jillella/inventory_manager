@@ -9,6 +9,16 @@ service cloud.firestore {
     }
     match /items/{id} { allow read: if staff(); allow create, delete: if admin(); allow update: if staff() && request.resource.data.stock is number && request.resource.data.stock >= 0 && (admin() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])); }
     match /logs/{id} { allow read, create: if staff(); allow update, delete: if admin(); }
+    match /item_history/{id} {
+      allow read: if admin();
+      allow create: if admin() && request.resource.data.staffId == request.auth.uid && request.resource.data.changes is list;
+      allow update, delete: if false;
+    }
+    match /ops_budgets/{month} {
+      allow read: if staff();
+      allow create, update: if admin() && request.resource.data.keys().hasOnly(['amount', 'updatedAt', 'staffId']) && request.resource.data.amount is number && request.resource.data.amount >= 0 && request.resource.data.staffId == request.auth.uid;
+      allow delete: if admin();
+    }
     match /settings/{id} { allow read: if staff(); allow write: if admin(); }
     match /ops_supplies/{id} {
       allow read: if staff();

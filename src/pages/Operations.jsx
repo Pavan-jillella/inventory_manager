@@ -5,6 +5,8 @@ import { useAppContext } from '../context/AppContext';
 import { applyOperation, csv, download, emptyOperations, localDate } from '../lib/operations';
 import './Operations.css';
 import './DashboardRefresh.css';
+import { OperationsAnalytics } from '../components/OperationsAnalytics';
+import { uploadReceipt, downloadReceipt } from '../lib/receipts';
 import { DailyOdometer, OperationsInsights } from '../components/OperationsInsights';
 
 const Field = ({ label, children }) => <label className="ops-field"><span>{label}</span>{children}</label>;
@@ -17,6 +19,8 @@ export function Operations({ section }) {
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null);
   const lock = useRef(false);
+  const submitLock = useRef(false);
+  const [uploading, setUploading] = useState(false);
   useEffect(() => {
     if (db) {
       let suppliesReady = false, dayReady = false;
@@ -27,7 +31,7 @@ export function Operations({ section }) {
       }, fail);
       const daySubscription = onSnapshot(doc(db, 'ops_days', date), snapshot => {
         const day = snapshot.exists() ? snapshot.data() : emptyOperations();
-        setData(previous => ({ ...day, supplies: previous.supplies }));
+        setData(previous => ({ ...emptyOperations(), ...day, supplies: previous.supplies }));
         dayReady = true; setReady(suppliesReady); setError('');
       }, fail);
       return () => { stockSubscription(); daySubscription(); };
@@ -64,7 +68,17 @@ export function Operations({ section }) {
   };
   const submit = type => async e => {
     e.preventDefault(); const form = e.currentTarget;
-    if (await save(type, { ...Object.fromEntries(new FormData(form)), ...(editing && type !== 'movement' && type !== 'mileage' ? { id: editing.id } : {}) })) form.reset();
+    if (submitLock.current) return;
+    submitLock.current = true;
+    try {
+      const values = Object.fromEntries(new FormData(form));
+      const file = values.receiptFile;
+      delete values.receiptFile;
+      const receipt = file?.size ? (setUploading(true), await uploadReceipt(file)) : editing?.receipt;
+      const record = { ...values, ...(editing && type !== 'movement' && type !== 'mileage' ? { id: editing.id } : {}), ...(type === 'expense' && receipt ? { receipt } : {}) };
+      if (await save(type, record)) form.reset();
+    } catch (error) { setError(error.message || 'Unable to attach receipt.'); }
+    finally { submitLock.current = false; setUploading(false); }
   };
   const department = section === 'breakfast' ? 'Breakfast' : 'Housekeeping';
   const supplies = data.supplies.filter(i => i.department === department);
@@ -79,13 +93,14 @@ export function Operations({ section }) {
     {!db && <p className="ops-notice">Local mode — records are saved only in this browser. Shared storage must be configured before using this for hotel operations.</p>}
     {error && <p role="alert" className="ops-error">{error}</p>}
     {!ready && !error && <p role="status">Loading shared records…</p>}
-    <fieldset disabled={busy || !ready} className="ops-workspace">
+    <fieldset disabled={busy || uploading || !ready} className="ops-workspace">
     <OperationsInsights section={section} supplies={supplies} movements={movements} trips={trips} expenses={expenses} />
+    {['breakfast', 'shuttle', 'expenses'].includes(section) && <OperationsAnalytics key={section} section={section} date={date} data={data} save={save} />}
     {['breakfast', 'housekeeping'].includes(section) && <>
-      <div className="ops-stats"><article><span>Inventory items</span><strong>{supplies.length}</strong></article><article><span>Low stock items</span><strong>{supplies.filter(i => i.stock <= i.minStock).length}</strong></article><article><span>Usage entries on selected date</span><strong>{movements.filter(i => i.kind === 'Used').length}</strong></article></div>
+      <div className="ops-stats"><article><span>Inventory items</span><strong>{supplies.length}</strong></article><article><span>Low stock items</span><strong>{supplies.filter(i => i.stock <= i.minStock).length}</strong></article><article><span>Usage entries on selected date</span><strong>{movements.filter(i => ['Used', 'Served', 'Wasted'].includes(i.kind)).length}</strong></article></div>
       <div className="ops-columns"><section className="ops-card"><h2>{editing ? 'Edit inventory item' : 'Add inventory item'}</h2><form key={editing?.id || 'new'} onSubmit={submit('supply')} className="ops-form"><input type="hidden" name="department" value={department} /><Field label="Item name"><input name="name" required maxLength={100} defaultValue={editing?.name} /></Field><div className="ops-row"><Field label="On hand"><input name="stock" type="number" min="0" step="0.01" required defaultValue={editing?.stock ?? 0} /></Field><Field label="Low stock threshold"><input name="minStock" type="number" min="0" step="0.01" required defaultValue={editing?.minStock ?? 5} /></Field></div><Field label="Unit (pieces, cartons, bottles)"><input name="unit" required maxLength={30} defaultValue={editing?.unit || 'pieces'} /></Field><button className="btn btn-primary">{busy ? 'Saving…' : 'Save inventory'}</button>{editing && <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel edit</button>}</form></section>
-      <section className="ops-card"><h2>{section === 'breakfast' ? 'Record morning usage' : 'Record supply usage'}</h2><form className="ops-form" onSubmit={submit('movement')}><Field label="Inventory item"><select name="itemId" required><option value="">Select item</option>{supplies.map(i => <option key={i.id} value={i.id}>{i.name} · {i.stock} {i.unit}</option>)}</select></Field><div className="ops-row"><Field label="Action"><select name="kind"><option>Used</option><option>Received</option></select></Field><Field label="Quantity"><input name="quantity" type="number" min="0.01" step="0.01" required /></Field></div><Field label="Notes / room number"><input name="notes" maxLength={300} /></Field><button className="btn btn-primary" disabled={!supplies.length}>Save stock movement</button></form></section></div>
-      <section className="ops-card"><h2>Stock on hand</h2><div className="ops-table"><table><thead><tr><th>Item</th><th>Available</th><th>Used on date</th><th>Status</th><th>Action</th></tr></thead><tbody>{supplies.map(i => <tr key={i.id}><td>{i.name}</td><td>{i.stock} {i.unit}</td><td>{movements.filter(m => m.itemId === i.id && m.kind === 'Used').reduce((s, m) => s + m.quantity, 0)} {i.unit}</td><td><span className={i.stock <= i.minStock ? 'badge badge-warning' : 'badge badge-success'}>{i.stock <= i.minStock ? 'Reorder' : 'In stock'}</span></td><td><button className="btn btn-secondary" onClick={() => setEditing(i)}>Edit {i.name}</button></td></tr>)}</tbody></table>{!supplies.length && <p className="ops-empty">Add your first {department.toLowerCase()} item to start tracking stock.</p>}</div></section>
+      <section className="ops-card"><h2>{section === 'breakfast' ? 'Record morning usage' : 'Record supply usage'}</h2><form className="ops-form" onSubmit={submit('movement')}><Field label="Inventory item"><select name="itemId" required><option value="">Select item</option>{supplies.map(i => <option key={i.id} value={i.id}>{i.name} · {i.stock} {i.unit}</option>)}</select></Field><div className="ops-row"><Field label="Action"><select name="kind">{section === 'breakfast' ? <><option>Served</option><option>Wasted</option></> : <option>Used</option>}<option>Received</option></select></Field><Field label="Quantity"><input name="quantity" type="number" min="0.01" step="0.01" required /></Field></div><Field label="Notes / room number"><input name="notes" maxLength={300} /></Field><button className="btn btn-primary" disabled={!supplies.length}>Save stock movement</button></form></section></div>
+      <section className="ops-card"><h2>Stock on hand</h2><div className="ops-table"><table><thead><tr><th>Item</th><th>Available</th><th>Used on date</th><th>Status</th><th>Action</th></tr></thead><tbody>{supplies.map(i => <tr key={i.id}><td>{i.name}</td><td>{i.stock} {i.unit}</td><td>{movements.filter(m => m.itemId === i.id && ['Used', 'Served', 'Wasted'].includes(m.kind)).reduce((s, m) => s + m.quantity, 0)} {i.unit}</td><td><span className={i.stock <= i.minStock ? 'badge badge-warning' : 'badge badge-success'}>{i.stock <= i.minStock ? 'Reorder' : 'In stock'}</span></td><td><button className="btn btn-secondary" onClick={() => setEditing(i)}>Edit {i.name}</button></td></tr>)}</tbody></table>{!supplies.length && <p className="ops-empty">Add your first {department.toLowerCase()} item to start tracking stock.</p>}</div></section>
       <section className="ops-card"><h2>Daily stock movements</h2><div className="ops-table"><table><thead><tr><th>Item</th><th>Action</th><th>Quantity</th><th>Notes</th><th>Recorded by</th></tr></thead><tbody>{movements.map(m => <tr key={m.id}><td>{m.itemName}</td><td>{m.kind}</td><td>{m.quantity}</td><td>{m.notes || '—'}</td><td>{m.staff}</td></tr>)}</tbody></table>{!movements.length && <p className="ops-empty">No movements recorded for this date.</p>}</div></section>
     </>}
     {section === 'shuttle' && <>
@@ -97,8 +112,8 @@ export function Operations({ section }) {
     </>}
     {section === 'expenses' && <>
       <div className="ops-stats"><article><span>Credit card spend · selected date</span><strong>${(expenses.reduce((s, e) => s + Math.round(e.amount * 100), 0) / 100).toFixed(2)}</strong></article><article><span>Transactions</span><strong>{expenses.length}</strong></article></div>
-      <section className="ops-card"><h2>{editing ? 'Edit expense' : 'Record a card expense'}</h2><form className="ops-form" key={editing?.id || 'expense'} onSubmit={submit('expense')}><div className="ops-row"><Field label="Vendor"><input name="vendor" required maxLength={100} defaultValue={editing?.vendor} /></Field><Field label="Amount ($)"><input name="amount" type="number" required min="0.01" step="0.01" defaultValue={editing?.amount} /></Field></div><div className="ops-row"><Field label="Category"><select name="category" defaultValue={editing?.category}><option>Supplies</option><option>Food & breakfast</option><option>Fuel</option><option>Maintenance</option><option>Other</option></select></Field><Field label="Card last 4 digits (optional)"><input name="card" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} defaultValue={editing?.card} /></Field></div><Field label="Purpose / receipt reference"><input name="notes" required maxLength={300} defaultValue={editing?.notes} /></Field><button className="btn btn-primary">Save expense</button>{editing && <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel edit</button>}</form></section>
-      <section className="ops-card"><h2>Daily expenses</h2><div className="ops-table"><table><thead><tr><th>Vendor</th><th>Category</th><th>Card</th><th>Amount</th><th>Purpose</th><th>Recorded by</th><th>Action</th></tr></thead><tbody>{expenses.map(e => <tr key={e.id}><td>{e.vendor}</td><td>{e.category}</td><td>{e.card ? `•••• ${e.card}` : '—'}</td><td>${e.amount.toFixed(2)}</td><td>{e.notes}</td><td>{e.staff}</td><td><button className="btn btn-secondary" onClick={() => setEditing(e)}>Edit expense</button></td></tr>)}</tbody></table>{!expenses.length && <p className="ops-empty">No credit card expenses recorded for this date.</p>}</div></section>
+      <section className="ops-card"><h2>{editing ? 'Edit expense' : 'Record a card expense'}</h2><form className="ops-form" key={editing?.id || 'expense'} onSubmit={submit('expense')}><div className="ops-row"><Field label="Vendor"><input name="vendor" required maxLength={100} defaultValue={editing?.vendor} /></Field><Field label="Amount ($)"><input name="amount" type="number" required min="0.01" step="0.01" defaultValue={editing?.amount} /></Field></div><div className="ops-row"><Field label="Category"><select name="category" defaultValue={editing?.category}><option>Supplies</option><option>Food & breakfast</option><option>Fuel</option><option>Maintenance</option><option>Other</option></select></Field><Field label="Card last 4 digits (optional)"><input name="card" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} defaultValue={editing?.card} /></Field></div><Field label="Receipt attachment (JPEG, PNG, WebP or PDF, up to 5 MB)"><input name="receiptFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!db || uploading} /></Field>{editing?.receipt && <p className="analytics-note">Attached: {editing.receipt.name}. Choose a file to replace the attachment.</p>}{uploading && <p role="status">Uploading receipt…</p>}<Field label="Purpose / receipt reference"><input name="notes" required maxLength={300} defaultValue={editing?.notes} /></Field><button className="btn btn-primary">Save expense</button>{editing && <button type="button" className="btn btn-secondary" onClick={() => setEditing(null)}>Cancel edit</button>}</form></section>
+      <section className="ops-card"><h2>Daily expenses</h2><div className="ops-table"><table><thead><tr><th>Vendor</th><th>Category</th><th>Card</th><th>Amount</th><th>Purpose / receipt</th><th>Recorded by</th><th>Action</th></tr></thead><tbody>{expenses.map(e => <tr key={e.id}><td>{e.vendor}</td><td>{e.category}</td><td>{e.card ? `•••• ${e.card}` : '—'}</td><td>${e.amount.toFixed(2)}</td><td>{e.notes}{e.receipt && <div><button className="btn btn-secondary" onClick={async () => { try { await downloadReceipt(e.receipt); } catch { setError('Unable to download receipt. Check your connection and staff access.'); } }}>Download receipt</button></div>}</td><td>{e.staff}</td><td><button className="btn btn-secondary" onClick={() => setEditing(e)}>Edit expense</button></td></tr>)}</tbody></table>{!expenses.length && <p className="ops-empty">No credit card expenses recorded for this date.</p>}</div></section>
     </>}
     </fieldset>
   </div>;

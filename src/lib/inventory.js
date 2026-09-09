@@ -16,6 +16,7 @@ export function planIssue(items, cart, details) {
     return {
       ...details, id: entry.logId, itemId: item.id, itemName: item.name,
       itemCategory: item.category, quantity,
+      stockBefore: item.stock, stockAfter: item.stock - quantity,
       rateType: entry.isFree ? 'Amenity' : details.rateType,
       unitRate: rate, totalAmount: Math.round(rate * 100) * quantity / 100,
       purchaseRate, purchaseCost: Math.round(purchaseRate * 100) * quantity / 100,
@@ -35,8 +36,10 @@ export function planLogChange(log, item, updates) {
   if (item && item.stock + difference < 0) throw new Error('There is not enough stock for this change.');
   const allowed = {};
   for (const key of ['roomNumber', 'notes', 'paymentMethod']) if (updates && updates[key] !== undefined) allowed[key] = updates[key];
+  const editableLog = { ...log };
+  if (quantity !== log.quantity) { delete editableLog.stockBefore; delete editableLog.stockAfter; }
   return {
     updatedItem: item ? { ...item, stock: item.stock + difference } : null,
-    updatedLog: updates === null ? null : { ...log, ...allowed, quantity, totalAmount: Math.round(log.unitRate * 100) * quantity / 100, purchaseCost: Math.round((log.purchaseRate || 0) * 100) * quantity / 100 },
+    updatedLog: updates === null ? null : { ...editableLog, ...allowed, quantity, totalAmount: Math.round(log.unitRate * 100) * quantity / 100, purchaseCost: Math.round((log.purchaseRate || 0) * 100) * quantity / 100 },
   };
 }

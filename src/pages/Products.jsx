@@ -49,7 +49,7 @@ export const Products = () => {
     setIsSaving(true);
     try {
       const validated = { ...parseInventory(JSON.stringify([form]), 'json')[0], image: form.image };
-      if (editingItem) await updateItem(editingItem.id, validated);
+      if (editingItem) await updateItem(editingItem.id, validated, editingItem);
       else await addItem(validated);
       setShowModal(false);
     } catch (e) { showToast(e.message || 'Unable to save product.', 'error'); }
