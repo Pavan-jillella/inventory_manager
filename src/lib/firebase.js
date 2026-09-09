@@ -2,6 +2,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { initializeApp } from 'firebase/app';
 import { planIssue, planLogChange } from './inventory';
+import { staffRecord } from './staffRecords';
 import {
   getFirestore,
   collection,
@@ -67,7 +68,7 @@ export const changeCloudLog = (id, updates) => runTransaction(db, async transact
 export const readCollection = async (name) => {
   if (!db) return [];
   const snapshot = await getDocs(collection(db, name));
-  return snapshot.docs.map((d) => d.data());
+  return snapshot.docs.map((d) => name === 'users' ? staffRecord(d.id, d.data()) : d.data());
 };
 
 export const upsertManyDocs = async (name, docs, idField = 'id') => {

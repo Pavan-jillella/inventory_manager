@@ -16,15 +16,23 @@ exports.manageStaff = onCall(async request => {
     return { name };
   }
   if (caller.data()?.role !== 'Admin') throw new HttpsError('permission-denied', 'Administrator access required.');
-  const { action, name, email, password, role, uid } = request.data || {};
+  const { action, name, email, password, role } = request.data || {};
+  const rawUid = request.data?.uid;
+  const uid = typeof rawUid === 'string' ? rawUid : Number.isSafeInteger(rawUid) && rawUid >= 0 ? String(rawUid) : '';
+  if (['rename', 'remove'].includes(action) && (!uid || uid.length > 128 || uid.includes('/') || ['.', '..'].includes(uid))) throw new HttpsError('invalid-argument', 'Select a valid staff profile.');
   if (action === 'rename') {
     if (typeof uid !== 'string' || typeof name !== 'string' || !name.trim() || name.length > 100) throw new HttpsError('invalid-argument', 'A staff profile and name are required.');
     const profile = db.collection('users').doc(uid);
     if (!(await profile.get()).exists) throw new HttpsError('not-found', 'Staff profile not found.');
     if (password !== undefined && password !== '') {
       if (typeof password !== 'string' || password.length < 12) throw new HttpsError('invalid-argument', 'Passwords must contain at least 12 characters.');
-      await getAuth().updateUser(uid, { password });
-      await getAuth().revokeRefreshTokens(uid);
+      try {
+        await getAuth().updateUser(uid, { password });
+        await getAuth().revokeRefreshTokens(uid);
+      } catch (error) {
+        if (error.code === 'auth/user-not-found') throw new HttpsError('failed-precondition', 'This older profile has no linked sign-in account. Leave the password blank to edit its name, or use Add Staff to create a sign-in account.');
+        throw error;
+      }
     }
     await profile.update({ name: name.trim() });
     return { name: name.trim() };
@@ -42,10 +50,18 @@ exports.manageStaff = onCall(async request => {
     return profile;
   }
   if (action === 'remove') {
-    if (typeof uid !== 'string' || uid === request.auth.uid) throw new HttpsError('invalid-argument', 'You cannot remove your own account.');
-    await getAuth().updateUser(uid, { disabled: true });
-    await getAuth().revokeRefreshTokens(uid);
-    await db.collection('users').doc(uid).delete();
+    if (uid === request.auth.uid) throw new HttpsError('invalid-argument', 'You cannot remove your own account.');
+    const profile = db.collection('users').doc(uid);
+    if (!(await profile.get()).exists) throw new HttpsError('not-found', 'Staff profile no longer exists. Refresh the page.');
+    try {
+      await getAuth().updateUser(uid, { disabled: true });
+      await getAuth().revokeRefreshTokens(uid);
+    } catch (error) {
+      // Legacy profiles predate Authentication. Never match by email: a duplicate
+      // profile may share an email with another person's active account.
+      if (error.code !== 'auth/user-not-found') throw error;
+    }
+    await profile.delete();
     return { removed: true };
   }
   throw new HttpsError('invalid-argument', 'Unknown staff action.');

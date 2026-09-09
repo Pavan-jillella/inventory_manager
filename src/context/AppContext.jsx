@@ -203,6 +203,7 @@ export const AppProvider = ({ children }) => {
     if (isFirebaseConfigured) await manageCloudStaff({ action: 'rename', uid: id, name: clean, ...(password ? { password } : {}) });
     setUsers(prev => prev.map(user => user.id === id ? { ...user, name: clean, ...(!isFirebaseConfigured && password ? { password } : {}) } : user));
     if (id === currentUser.id) setCurrentUser(prev => ({ ...prev, name: clean }));
+    showToast('Staff account updated');
   };
 
   const login = async (username, password) => {
@@ -250,11 +251,9 @@ export const AppProvider = ({ children }) => {
     return true;
   };
   const removeStaff = async userId => {
-    try {
-      if (userId === currentUser?.id) throw new Error('You cannot remove your own account.');
-      if (isFirebaseConfigured) await manageCloudStaff({ action: 'remove', uid: userId });
-      setUsers(prev => prev.filter(u => u.id !== userId)); showToast('Staff removed');
-    } catch (e) { showToast(e.message || 'Unable to remove staff.', 'error'); }
+    if (userId === currentUser?.id) throw new Error('You cannot remove your own account.');
+    if (isFirebaseConfigured) await manageCloudStaff({ action: 'remove', uid: userId });
+    setUsers(prev => prev.filter(u => u.id !== userId)); showToast('Staff removed');
   };
 
   // ── Item CRUD ──

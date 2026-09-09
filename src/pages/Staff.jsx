@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Trash2, Shield, User, Lock, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -15,6 +15,11 @@ export const Staff = () => {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('Front Desk');
+  const editPanel = useRef(null);
+  const editingId = editing?.id;
+  useEffect(() => {
+    if (editingId !== undefined) editPanel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [editingId]);
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -39,10 +44,12 @@ export const Staff = () => {
     }
   };
 
-  const handleDelete = (userId) => {
-    if (window.confirm('Are you sure you want to remove this staff member?')) {
-      removeStaff(userId);
-    }
+  const handleDelete = async (user) => {
+    if (saving || !window.confirm(`Remove ${user.name}? Their sign-in access will be disabled if linked. Existing activity records will be kept.`)) return;
+    setSaving(true); setError('');
+    try { await removeStaff(user.id); if (editing?.id === user.id) setEditing(null); }
+    catch (error) { setError(error.message || 'Unable to remove staff. Please try again.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -52,12 +59,13 @@ export const Staff = () => {
           <h1>Staff</h1>
           <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Manage team members, credentials, and access levels.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn btn-primary" disabled={saving} onClick={() => { setError(''); setShowAdd(true); }}>
           <Plus size={16} /> Add Staff
         </button>
       </div>
 
-      {editing && <section className="suite-panel"><h2>Edit staff account</h2><form className="ops-form" onSubmit={async e => { e.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await renameStaff(editing.id, editing.name, editing.password); setEditing(null); } catch (e) { setError(e.message || 'Unable to save staff profile.'); } finally { setSaving(false); } }}><label className="ops-field"><span>Staff display name</span><input required maxLength={100} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label><label className="ops-field"><span>New password (optional)</span><input type="password" autoComplete="new-password" minLength={12} value={editing.password || ''} onChange={e => setEditing({ ...editing, password: e.target.value })} placeholder="Leave blank to keep the current password" /></label><div className="suite-toolbar"><button className="btn btn-primary" disabled={saving}>Save staff changes</button><button className="btn btn-outline" type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel edit</button></div>{error && <p role="alert" className="ops-error">{error}</p>}</form></section>}
+      {error && !showAdd && <p role="alert" className="ops-error">{error}</p>}
+      {editing && <section ref={editPanel} className="suite-panel"><h2>Edit staff account</h2><form className="ops-form" onSubmit={async e => { e.preventDefault(); if (saving) return; setSaving(true); setError(''); try { await renameStaff(editing.id, editing.name, editing.password); setEditing(null); } catch (e) { setError(e.message || 'Unable to save staff profile.'); } finally { setSaving(false); } }}><label className="ops-field"><span>Staff display name</span><input required maxLength={100} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label><label className="ops-field"><span>New password (optional)</span><input type="password" autoComplete="new-password" minLength={12} value={editing.password || ''} onChange={e => setEditing({ ...editing, password: e.target.value })} placeholder="Leave blank to keep the current password" /></label><p className="text-secondary">Password resets require a linked sign-in account. Older profiles can still be renamed or removed. Use Add Staff to create a new sign-in account.</p><div className="suite-toolbar"><button className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save staff changes'}</button><button className="btn btn-outline" type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel edit</button></div></form></section>}
       {/* Add Staff Modal */}
       <AnimatePresence>
         {showAdd && (
@@ -186,7 +194,7 @@ export const Staff = () => {
                     <button
                       className="btn btn-ghost btn-sm"
                       style={{ padding: '0.4rem', color: 'var(--danger-color)' }}
-                      onClick={() => handleDelete(user.id)}
+                      onClick={() => handleDelete(user)}
                       title="Remove Staff"
                       aria-label={`Remove ${user.name}`}
                       disabled={saving || user.id === currentUser.id}

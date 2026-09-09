@@ -2,17 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { staffRecord } from '../src/lib/staffRecords.js';
 
-function backend({ role = 'Admin', failProfile = false } = {}) {
+function backend({ role = 'Admin', failProfile = false, authError, revokeError, profileExists = true } = {}) {
   const events = [];
   const auth = {
     createUser: async data => { events.push(['create', data]); return { uid: 'new-uid' }; },
     deleteUser: async uid => events.push(['rollback', uid]),
-    updateUser: async (uid, data) => events.push(['updateAuth', uid, data]),
-    revokeRefreshTokens: async uid => events.push(['revoke', uid]),
+    updateUser: async (uid, data) => {
+      events.push(['updateAuth', uid, data]);
+      if (authError) throw Object.assign(new Error('Auth failed'), { code: authError });
+    },
+    revokeRefreshTokens: async uid => {
+      events.push(['revoke', uid]);
+      if (revokeError) throw Object.assign(new Error('Revoke failed'), { code: revokeError });
+    },
   };
   const db = { collection: () => ({ doc: uid => ({
-    get: async () => ({ exists: true, data: () => ({ role }) }),
+    get: async () => ({ exists: uid === 'admin' || profileExists, data: () => ({ role }) }),
     set: async data => { if (failProfile) throw new Error('write failed'); events.push(['profile', uid, data]); },
     update: async data => events.push(['updateProfile', uid, data]),
     delete: async () => events.push(['deleteProfile', uid]),
@@ -64,5 +71,51 @@ test('administrator password reset revokes existing sessions', async () => {
 test('administrator cannot remove their own account', async () => {
   const server = backend();
   await assert.rejects(server.call({ action: 'remove', uid: 'admin' }), { code: 'invalid-argument' });
+  assert.equal(server.events.length, 0);
+});
+test('staff reads use the real document ID and exclude legacy stored passwords', () => {
+  assert.deepEqual(staffRecord('actual-uid', { id: 123, name: 'Old staff', username: 'desk', role: 'Front Desk', password: 'obsolete' }), { id: 'actual-uid', name: 'Old staff', username: 'desk', role: 'Front Desk' });
+});
+test('older numeric profile IDs can be renamed without creating or changing credentials', async () => {
+  const server = backend();
+  await server.call({ action: 'rename', uid: 123, name: 'Updated name' });
+  assert.equal(server.events.length, 1);
+  assert.equal(server.events[0][0], 'updateProfile');
+  assert.equal(server.events[0][1], '123');
+});
+test('legacy profile removal succeeds when its exact Auth UID does not exist', async () => {
+  const server = backend({ authError: 'auth/user-not-found' });
+  await server.call({ action: 'remove', uid: 123 });
+  assert.equal(server.events[0][1], '123');
+  assert.deepEqual(server.events[1], ['deleteProfile', '123']);
+});
+test('linked staff removal disables and revokes access before removing only its profile', async () => {
+  const server = backend();
+  await server.call({ action: 'remove', uid: 'staff' });
+  assert.equal(server.events[0][2].disabled, true);
+  assert.deepEqual(server.events.slice(1), [['revoke', 'staff'], ['deleteProfile', 'staff']]);
+});
+test('permission or session-revocation failures never remove the staff profile', async () => {
+  for (const options of [{ authError: 'auth/insufficient-permission' }, { revokeError: 'auth/internal-error' }]) {
+    const server = backend(options);
+    await assert.rejects(server.call({ action: 'remove', uid: 'staff' }));
+    assert.equal(server.events.some(e => e[0] === 'deleteProfile'), false);
+  }
+});
+test('legacy password reset explains missing account without changing profile or provisioning access', async () => {
+  const server = backend({ authError: 'auth/user-not-found' });
+  await assert.rejects(server.call({ action: 'rename', uid: 123, name: 'Name', password: 'example-password' }), { code: 'failed-precondition' });
+  assert.equal(server.events.length, 1);
+  assert.equal(server.events[0][0], 'updateAuth');
+});
+test('front desk cannot edit or remove staff, and invalid IDs are rejected', async () => {
+  for (const action of ['rename', 'remove']) {
+    await assert.rejects(backend({ role: 'Front Desk' }).call({ action, uid: 'staff', name: 'Name' }), { code: 'permission-denied' });
+    for (const uid of [null, {}, 'other/path', '', -1]) await assert.rejects(backend().call({ action, uid, name: 'Name' }), { code: 'invalid-argument' });
+  }
+});
+test('missing target profile cannot disable an unrelated Auth account', async () => {
+  const server = backend({ profileExists: false });
+  await assert.rejects(server.call({ action: 'remove', uid: 'missing' }), { code: 'not-found' });
   assert.equal(server.events.length, 0);
 });
