@@ -91,7 +91,7 @@ export const IssueItem = () => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Enter' && cart.length > 0 && !e.repeat && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      if (e.key === 'Enter' && cart.length > 0 && !e.repeat && !e.target.closest('input, textarea, select, button, a, [contenteditable]')) {
         e.preventDefault();
         void handleSubmit();
       }
@@ -101,7 +101,7 @@ export const IssueItem = () => {
   }, [cart.length, handleSubmit]);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="suite-page issueitem-page">
       {/* ── Header with Glassy Shift Stats ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -143,8 +143,9 @@ export const IssueItem = () => {
         </div>
       </div>
 
+      <div className="suite-guide"><span>01 · Select products</span><span>02 · Review room & payment</span><span>03 · Confirm issue</span></div>
       {/* ── Main Content ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.25rem', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+      <div className="issue-workspace">
 
         {/* ── Left: Catalog ── */}
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -174,7 +175,7 @@ export const IssueItem = () => {
               const inCart = cart.find(c => c.item.id === item.id);
               const isLow = item.stock <= item.minStock;
               return (
-                <Motion.div
+                <Motion.button type="button" aria-label={`Add ${item.name} to order`} disabled={item.stock <= 0}
                   whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   key={item.id} onClick={() => addToCart(item)}
                   style={{
@@ -194,14 +195,14 @@ export const IssueItem = () => {
                     </div>
                   )}
                   <div style={{ width: '74px', height: '74px', borderRadius: '0.85rem', overflow: 'hidden', marginBottom: '0.6rem', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-                    <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} loading="lazy" />
+                    {item.image ? <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} loading="lazy" /> : <Package size={40} style={{ margin: '16px', color: 'var(--accent-color)' }} />}
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.25rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>{item.name}</div>
                   <div style={{ fontSize: '0.65rem', color: isLow ? 'var(--danger-color)' : 'var(--success-color)', fontWeight: 700 }}>{item.stock} in stock</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--accent-dark)', fontWeight: 800, marginTop: '0.25rem' }}>
                     ${rateType === 'staff' ? item.staffRate?.toFixed(2) : item.guestRate?.toFixed(2)}
                   </div>
-                </Motion.div>
+                </Motion.button>
               );
             })}
             {filteredItems.length === 0 && (
@@ -252,7 +253,7 @@ export const IssueItem = () => {
               </div>
               <div>
                 <span style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-primary)', display: 'block' }}>
-                  Register
+                  Current order
                 </span>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{cart.length === 0 ? 'No items' : `${cartQty} total qty`}</span>
               </div>
@@ -296,21 +297,21 @@ export const IssueItem = () => {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'start', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                        <img src={c.item.image} alt={c.item.name} style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'contain', background: '#fff', border: '1px solid rgba(0,0,0,0.05)' }} />
+                        {c.item.image ? <img src={c.item.image} alt={c.item.name} style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'contain' }} /> : <Package size={30} aria-hidden="true" />}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item.name}</div>
                           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>{c.item.category}</div>
                         </div>
-                        <button onClick={() => removeFromCart(c.item.id)} style={{ color: 'var(--danger-color)', padding: '4px', opacity: 0.4 }} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.4}>
+                        <button aria-label={`Remove ${c.item.name} from order`} onClick={() => removeFromCart(c.item.id)} style={{ color: 'var(--danger-color)', padding: '4px', opacity: 0.4 }} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0.4}>
                           <X size={14} />
                         </button>
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: c.isFree ? '#f0fdf4' : '#f9fafb', padding: '4px 8px', borderRadius: '6px', border: c.isFree ? '1px solid #bbf7d0' : '1px solid transparent' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <button onClick={() => updateCartQty(c.item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
+                          <button aria-label={`Decrease ${c.item.name} quantity`} onClick={() => updateCartQty(c.item.id, -1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
                           <span style={{ fontSize: '0.8rem', fontWeight: 800, minWidth: '22px', textAlign: 'center' }}>{c.quantity}</span>
-                          <button onClick={() => updateCartQty(c.item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
+                          <button aria-label={`Increase ${c.item.name} quantity`} onClick={() => updateCartQty(c.item.id, 1)} style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'white', border: '1px solid rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button 

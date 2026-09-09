@@ -57,7 +57,7 @@ export const Dashboard = () => {
   }, [items]);
 
   return (
-    <div style={{ paddingBottom: '2rem' }}>
+    <div className="suite-page dashboard-page">
       <div className="app-header">
         <div>
           <h1>Control Center</h1>
@@ -137,7 +137,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Charts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '1.5rem' }}>
         <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
           <h3 style={{ marginBottom: '1.25rem' }}>Revenue Trend (7 days)</h3>
           <div style={{ height: '280px' }}>

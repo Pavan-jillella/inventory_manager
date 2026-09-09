@@ -76,10 +76,10 @@ export const Login = () => {
         {!isFirebaseConfigured && <p role="status" style={{ fontSize: '.875rem', marginBottom: '1rem', color: '#735100' }}>Local demonstration mode. Shared storage and secure sign-in are not configured.</p>}
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           <div className="input-group">
-            <label htmlFor="login-username">{isFirebaseConfigured ? 'Email' : 'Username'}</label>
+            <label htmlFor="login-username">Username or email</label>
             <div style={{ position: 'relative' }}>
               <User size={15} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input id="login-username" autoComplete="username" required type={isFirebaseConfigured ? "email" : "text"} className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder={isFirebaseConfigured ? 'Enter your registered email' : 'Enter username'} style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
+              <input id="login-username" autoComplete="username" required type="text" className="input" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter your username or email" style={{ width: '100%', paddingLeft: '2.5rem' }} autoFocus />
             </div>
           </div>
           <div className="input-group">

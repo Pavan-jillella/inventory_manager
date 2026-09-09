@@ -13,12 +13,12 @@ export function signInMessage(error) {
     case 'auth/operation-not-allowed':
       return 'Email sign-in is not configured for this website. Contact the administrator to finish Firebase Authentication setup.';
     case 'auth/invalid-email':
-      return 'Enter your registered email address. Old username-only accounts must be migrated before they can sign in.';
+      return 'Enter the username or email assigned by your administrator.';
     case 'auth/invalid-credential':
     case 'auth/invalid-login-credentials':
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-      return 'Email or password was not recognized. If you previously signed in with a username, your administrator must first migrate that account.';
+      return 'Username, email or password was not recognized. Existing legacy accounts must first be migrated by your administrator.';
     case 'auth/user-disabled':
       return 'This account is disabled. Contact your administrator.';
     case 'auth/too-many-requests':

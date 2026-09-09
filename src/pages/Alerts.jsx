@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { csv, download } from '../lib/operations';
 import { motion as Motion } from 'framer-motion';
 import { AlertTriangle, Package, ShieldAlert } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
@@ -15,7 +17,7 @@ export const Alerts = () => {
   ];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="suite-page alerts-page">
       <div className="app-header">
         <div>
           <h1>Alerts</h1>
@@ -23,6 +25,7 @@ export const Alerts = () => {
         </div>
       </div>
 
+      <div className="suite-toolbar"><Link className="btn btn-primary" to="/admin/products">Review inventory</Link><button className="btn btn-outline" disabled={!allAlerts.length} onClick={() => download('reorder-list.csv', csv([['Item', 'Available', 'Minimum', 'Units to reach minimum'], ...allAlerts.map(i => [i.name, i.stock, i.minStock, Math.max(0, i.minStock - i.stock)])]))}>Export reorder list</button></div>
       {/* Summary Row — compact */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
         {[
@@ -75,7 +78,7 @@ export const Alerts = () => {
               }}
             >
               {alert.image ? (
-                <img src={alert.image} alt={alert.name} style={{ width: '32px', height: '32px', borderRadius: '0.35rem', objectFit: 'cover', border: '1px solid rgba(0,0,0,0.05)' }} />
+                <img src={alert.image} alt={alert.name} style={{ width: '32px', height: '32px', borderRadius: '0.35rem', objectFit: 'contain', border: '1px solid rgba(0,0,0,0.05)' }} />
               ) : (
                 <div style={{ width: '32px', height: '32px', borderRadius: '0.35rem', background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={14} /></div>
               )}

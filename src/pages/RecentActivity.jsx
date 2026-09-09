@@ -1,7 +1,9 @@
+import { inRecentDays } from '../lib/reporting';
 import React, { useState, useMemo } from 'react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { Clock, Package, Search, FileText, CreditCard, Banknote, Sun, Sunset, Moon, LayoutGrid, List, Edit2, Trash2, Check, X, Minus, Plus } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { csv, download, localDate } from '../lib/operations';
 import { SHIFTS } from '../data/mockData';
 
 const SHIFT_ICONS = { morning: Sun, afternoon: Sunset, night: Moon };
@@ -12,7 +14,7 @@ const SHIFT_COLORS = {
 };
 
 export const RecentActivity = () => {
-  const { logs, updateLog, deleteLog } = useAppContext();
+  const { logs, updateLog, deleteLog, currentUser } = useAppContext();
   const [filter, setFilter] = useState('today');
   const [searchText, setSearchText] = useState('');
   const [viewMode, setViewMode] = useState('shifts');
@@ -25,7 +27,7 @@ export const RecentActivity = () => {
         const logDate = new Date(log.timestamp);
         const now = new Date();
         if (filter === 'today' && logDate.toDateString() !== now.toDateString()) return false;
-        if (filter === 'week') { const diff = Math.ceil(Math.abs(now - logDate) / (1000 * 60 * 60 * 24)); if (diff > 7) return false; }
+        if (filter === 'week' && !inRecentDays(log.timestamp, 7, now)) return false;
       }
       if (searchText) {
         const q = searchText.toLowerCase();
@@ -55,17 +57,11 @@ export const RecentActivity = () => {
   const confirmDelete = (logId) => { if (window.confirm('Delete this entry? Stock will be restored.')) deleteLog(logId); };
 
   const exportCSV = () => {
-    const headers = 'Time,Item,Category,Qty,Rate Type,Unit Rate,Amount,Payment,Room,Staff,Shift\n';
-    const rows = filteredLogs.map(l => `"${new Date(l.timestamp).toLocaleString()}","${l.itemName}","${l.itemCategory}",${l.quantity},"${l.rateType}",${l.unitRate},${l.totalAmount},"${l.paymentMethod || ''}","${l.roomNumber}","${l.staffName}","${l.shiftLabel}"`).join('\n');
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `activity_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
+    download(`activity_${localDate()}.csv`, csv([['Time', 'Item', 'Category', 'Qty', 'Rate type', 'Unit rate', 'Amount', 'Payment', 'Room', 'Staff', 'Shift'], ...filteredLogs.map(l => [new Date(l.timestamp).toLocaleString(), l.itemName, l.itemCategory, l.quantity, l.rateType, l.unitRate, l.totalAmount, l.paymentMethod, l.roomNumber, l.staffName, l.shiftLabel])]));
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="suite-page recentactivity-page">
       <div className="app-header">
         <div>
           <h1>Activity Log</h1>
@@ -73,13 +69,14 @@ export const RecentActivity = () => {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '0.15rem', padding: '0.2rem', background: '#f3f4f6', borderRadius: '0.5rem' }}>
-            <button onClick={() => setViewMode('shifts')} style={{ padding: '0.35rem 0.5rem', borderRadius: '0.35rem', background: viewMode === 'shifts' ? 'white' : 'transparent', boxShadow: viewMode === 'shifts' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'shifts' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><LayoutGrid size={15} /></button>
-            <button onClick={() => setViewMode('list')} style={{ padding: '0.35rem 0.5rem', borderRadius: '0.35rem', background: viewMode === 'list' ? 'white' : 'transparent', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'list' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><List size={15} /></button>
+            <button aria-label="View activity by shift" onClick={() => setViewMode('shifts')} style={{ padding: '0.35rem 0.5rem', borderRadius: '0.35rem', background: viewMode === 'shifts' ? 'white' : 'transparent', boxShadow: viewMode === 'shifts' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'shifts' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><LayoutGrid size={15} /></button>
+            <button aria-label="View activity as list" onClick={() => setViewMode('list')} style={{ padding: '0.35rem 0.5rem', borderRadius: '0.35rem', background: viewMode === 'list' ? 'white' : 'transparent', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', color: viewMode === 'list' ? 'var(--accent-dark)' : 'var(--text-muted)' }}><List size={15} /></button>
           </div>
           <button className="btn btn-outline btn-sm" onClick={exportCSV}><FileText size={14} /> Export</button>
         </div>
       </div>
 
+      <div className="ops-stats"><article><span>Entries in view</span><strong>{filteredLogs.length}</strong></article><article><span>Items issued</span><strong>{filteredLogs.reduce((sum, l) => sum + l.quantity, 0)}</strong></article><article><span>Recorded sales</span><strong>${(filteredLogs.reduce((sum, l) => sum + Math.round((l.totalAmount || 0) * 100), 0) / 100).toFixed(2)}</strong></article></div>
       {/* Filters */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: '1', maxWidth: '300px' }}>
@@ -101,7 +98,7 @@ export const RecentActivity = () => {
           </div>
         ) : viewMode === 'shifts' ? (
           /* ── SHIFT CARDS VIEW ── */
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1.25rem', paddingBottom: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))', gap: '1.25rem', paddingBottom: '1rem' }}>
             {Object.values(shiftGroups).map(group => {
               const ShiftIcon = SHIFT_ICONS[group.shift.id];
               const colors = SHIFT_COLORS[group.shift.id];
@@ -165,8 +162,8 @@ export const RecentActivity = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>×{log.quantity}</span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-dark)', minWidth: '44px', textAlign: 'right' }}>${log.totalAmount?.toFixed(2)}</span>
-                            <button onClick={() => startEdit(log)} style={{ padding: '0.15rem', color: 'var(--text-muted)', opacity: 0.5 }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.5}><Edit2 size={12} /></button>
-                            <button onClick={() => confirmDelete(log.id)} style={{ padding: '0.15rem', color: 'var(--danger-color)', opacity: 0.5 }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.5}><Trash2 size={12} /></button>
+                            <button aria-label={`Edit ${log.itemName} entry`} disabled={currentUser.role !== 'Admin'} onClick={() => startEdit(log)} style={{ padding: '0.15rem', color: 'var(--text-muted)', opacity: 0.5 }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.5}><Edit2 size={12} /></button>
+                            <button aria-label={`Delete ${log.itemName} entry`} disabled={currentUser.role !== 'Admin'} onClick={() => confirmDelete(log.id)} style={{ padding: '0.15rem', color: 'var(--danger-color)', opacity: 0.5 }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0.5}><Trash2 size={12} /></button>
                           </div>
                         )}
                       </div>
@@ -216,8 +213,8 @@ export const RecentActivity = () => {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', gap: '0.2rem', justifyContent: 'flex-end' }}>
-                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem' }} onClick={() => startEdit(log)}><Edit2 size={13} /></button>
-                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem', color: 'var(--danger-color)' }} onClick={() => confirmDelete(log.id)}><Trash2 size={13} /></button>
+                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem' }} aria-label={`Edit ${log.itemName} entry`} disabled={currentUser.role !== 'Admin'} onClick={() => startEdit(log)}><Edit2 size={13} /></button>
+                          <button className="btn btn-ghost btn-sm" style={{ padding: '0.25rem', color: 'var(--danger-color)' }} aria-label={`Delete ${log.itemName} entry`} disabled={currentUser.role !== 'Admin'} onClick={() => confirmDelete(log.id)}><Trash2 size={13} /></button>
                         </div>
                       )}
                     </td>

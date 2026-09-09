@@ -1,3 +1,4 @@
+import { inRecentDays } from '../lib/reporting';
 import React, { useMemo, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { DollarSign, TrendingUp, CreditCard, Banknote, Users } from 'lucide-react';
@@ -16,8 +17,7 @@ export const Revenue = () => {
   const periodLogs = useMemo(() => {
     const now = new Date();
     return logs.filter(l => {
-      const diff = Math.ceil(Math.abs(now - new Date(l.timestamp)) / (1000 * 60 * 60 * 24));
-      return diff <= parseInt(period);
+      return inRecentDays(l.timestamp, Number(period), now);
     });
   }, [logs, period]);
 
@@ -79,7 +79,7 @@ export const Revenue = () => {
   const staffRateRevenue = periodLogs.filter(l => l.rateType === 'staff').reduce((s, l) => s + (l.totalAmount || 0), 0);
 
   return (
-    <div style={{ paddingBottom: '2rem' }}>
+    <div className="suite-page revenue-page">
       <div className="app-header">
         <div>
           <h1>Revenue</h1>
@@ -137,7 +137,7 @@ export const Revenue = () => {
       </Motion.div>
 
       {/* Revenue Trend Area Chart */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
           <h3 style={{ marginBottom: '1rem' }}>Revenue vs Profit</h3>
           <div style={{ height: '260px' }}>
@@ -193,7 +193,7 @@ export const Revenue = () => {
       </div>
 
       {/* Top Items + Staff */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '1.5rem' }}>
         <div style={{ background: 'white', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', boxShadow: 'var(--shadow-soft)' }}>
           <h3 style={{ marginBottom: '1rem' }}>Top Revenue Items</h3>
           {topItems.length === 0 ? <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No data yet.</p> : (

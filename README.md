@@ -58,6 +58,21 @@ Do not deploy this branch over the existing site until the authentication migrat
 5. Verify signed-out access is denied, both staff roles can perform their permitted workflows, and two devices see the same saved inventory and daily records.
 6. Run `npm ci`, `npm run lint`, `npm test`, and `npm run build`. Deploy to a Vercel preview using the existing project settings, verify sign-in and cloud saves there, and only then promote to production.
 
+### Daily email reports
+
+The report recipients, local delivery time, and time zone are editable in Admin → Settings. Delivery runs every five minutes and sends at the selected local time for the previous calendar day, with a daily idempotency record to prevent duplicates. Gmail requires 2-Step Verification and an App Password; Google shows an App Password only once, and it should never be placed in source code or chat. Store the SMTP values as Firebase Functions secrets:
+
+```sh
+firebase functions:secrets:set REPORT_EMAIL_SMTP_HOST   # smtp.gmail.com
+firebase functions:secrets:set REPORT_EMAIL_SMTP_PORT   # 587
+firebase functions:secrets:set REPORT_EMAIL_SMTP_USER   # sender address
+firebase functions:secrets:set REPORT_EMAIL_SMTP_PASS   # Gmail App Password
+firebase functions:secrets:set REPORT_EMAIL_FROM        # sender address
+firebase deploy --project country-inn-suites --only functions:sendDailyShiftReport
+```
+
+The first two commands may require enabling Secret Manager. Configure recipients in Settings, turn on Enable daily report, save, then verify the first delivery. The sender and recipients can be changed later without changing application code.
+
 The local build, lint, and 20 automated tests pass. Browser checks covered all four operations pages, stock overuse rejection, persistence, expense correction, CSV preview/edit/import, mobile navigation, image upload, and recoverable trip deletion. Authenticated cloud checks with two separate sessions are required before promoting a new release. Local demonstration records do not automatically migrate to Firestore.
 
 ## Firestore Collections
