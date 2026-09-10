@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DonutChart } from './VisualCharts';
 
 export function OperationsInsights({ section, supplies = [], movements = [], trips = [], expenses = [] }) {
   const rows = section === 'shuttle'
@@ -8,6 +9,7 @@ export function OperationsInsights({ section, supplies = [], movements = [], tri
       : supplies.map(i => ({ id: i.id, available: i.stock, label: i.name, value: movements.filter(m => m.itemId === i.id && ['Used', 'Served', 'Wasted'].includes(m.kind)).reduce((sum, m) => sum + m.quantity, 0), unit: i.unit })).filter(r => r.value > 0);
   const max = Math.max(1, ...rows.map(r => r.value));
   const stock = ['breakfast', 'housekeeping'].includes(section);
+  if (section === 'shuttle') return <DonutChart title="Shuttle trip status" data={rows} value="value" unit="trips" note="Scheduled, completed, and cancelled trips for the selected business date. Deleted trips are excluded." />;
   return <section className="ops-card ops-insights"><div><p className="ops-eyebrow">AT A GLANCE</p><h2>{section === 'shuttle' ? 'Your day in motion' : section === 'expenses' ? 'Where today’s spend goes' : 'Daily consumption'}</h2><p className="ops-support">{stock ? 'Usage by item on the selected date. Quantities retain their own units.' : 'A breakdown of records for the selected business date.'}</p></div><div className="ops-bars">{rows.length ? rows.map(r => <div className="ops-bar-row" key={r.id || r.label}><div><span>{r.label}</span><strong>{Number(r.value.toFixed(2)).toLocaleString()} {r.unit}</strong></div><div className="ops-bar-track"><span style={{ width: `${r.value / (stock ? Math.max(1, r.value + r.available) : max) * 100}%` }} /></div></div>) : <p className="ops-empty">Your daily activity will appear here as records are added.</p>}{stock && rows.length > 0 && <small>Each bar shows used quantity relative to used + currently available stock for that item.</small>}</div></section>;
 }
 
