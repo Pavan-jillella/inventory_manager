@@ -2,6 +2,12 @@
 
 Website: https://cisshop.vercel.app
 
+## Visualization update — September 10
+
+Donut charts now show stock/category shares, monthly expense categories and the breakfast served/wasted/unclassified mix for one item. Product details include a clickable 30-day usage calendar, with exact dates and quantities available by keyboard or in a data table. Monthly card budgets use a circular indicator that retains the true percentage above 100%. Shuttle mileage uses a shaded area chart while retaining gaps for incomplete readings. Empty and zero-budget states do not invent percentages or activity.
+
+Checked populated donuts, over-budget display and heatmap date selection in the local demo. Mobile heatmap and breakfast charts fit a 390-pixel viewport without document or dialog overflow. No production records were changed for these visualization checks. Existing receipt round-trip and multi-device acceptance checks below still apply.
+
 ## Analytics and operations additions — September 9
 
 - Inventory product photos/names open a detail window with larger imagery, 30-day issue charts, recent product edits and recorded stock transitions. Historical edits from before this release cannot be reconstructed. Product edit history is append-only from the client; administrators can read it.

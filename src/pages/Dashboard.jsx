@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { DonutChart } from '../components/VisualCharts';
 import { DateFilters, TrendChart } from '../components/Analytics';
 import { comparison, dateKey, dateRange, inRange, shiftDate, sumMoney } from '../lib/analytics';
 import { SHIFTS } from '../data/mockData';
@@ -37,7 +38,7 @@ export const Dashboard = () => {
       </div>
       {costsToReview > 0 && <p className="analytics-warning">{costsToReview} products have zero or missing purchase costs. Review these costs before relying on inventory valuation or profit reports.</p>}
       <TrendChart title="Sales compared with previous period" data={daily} series={[{ key: 'sales', name: 'Selected period ($)' }, { key: 'previous', name: 'Previous period ($)' }]} note="Previous-period dates are aligned by position for comparison. No recorded activity appears as zero." />
-      <div className="analytics-grid"><TrendChart title="Shift performance · selected period" bars data={SHIFTS.map(shift => ({ shift: shift.label, sales: sumMoney(selected.filter(log => log.shift === shift.id), 'totalAmount') }))} label="shift" series={[{ key: 'sales', name: 'Sales ($)' }]} /><TrendChart title="Stock by category · now" bars data={categories} label="category" series={[{ key: 'units', name: 'Units on hand' }]} note="Current stock is a live snapshot and does not change with the reporting dates." /></div>
+      <div className="analytics-grid"><TrendChart title="Shift performance · selected period" bars data={SHIFTS.map(shift => ({ shift: shift.label, sales: sumMoney(selected.filter(log => log.shift === shift.id), 'totalAmount') }))} label="shift" series={[{ key: 'sales', name: 'Sales ($)' }]} /><DonutChart title="Stock by category · now" data={categories} label="category" value="units" unit="Units on hand" note="Current stock is a live snapshot and does not change with the reporting dates." /></div>
     </>}
   </div>;
 };
